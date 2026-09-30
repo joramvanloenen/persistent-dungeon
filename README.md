@@ -65,3 +65,13 @@ Surface minimaps scroll using cached terrain; the marker stays centered as the t
 `dev/ui-preview.html` provides desktop and phone UI fixtures without loading WebGL or touching a traveler save. This is a development preview, not a gameplay session.
 
 ![Flat interface and RPG dialogue fixture](docs/interface-preview-20260930.jpg)
+
+## Mobile dialogue and controls
+
+Phone controls have at least 44 × 44 px touch targets and 8 px between adjacent controls. The action dock stacks into separate rows, with the minimap and notices following its actual height. Dialogs follow the visible viewport when the keyboard opens, and the field HUD is hidden while a dialog is active.
+
+NPC speech is the main visual focus, followed by clearly grouped reply choices. **Say something else** expands the custom reply form only when needed; **Conversation journal** remains a secondary action in the footer. Existing conversation memories and saves are unchanged.
+
+The development preview includes 320, 360, 390, and 430 px phone layouts, a keyboard-sized viewport, and a live overlap/touch-target audit. Layout checks and all 17 automated regression tests pass.
+
+![Mobile dialogue fixture](docs/mobile-dialogue-20260930.jpg)
