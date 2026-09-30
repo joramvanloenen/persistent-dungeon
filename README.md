@@ -48,10 +48,20 @@ GitHub Pages is configured to publish the root of `main`; the root `index.html` 
 
 Every player now receives a new, individually owned cottage on a vacant village plot. Existing saves gain a home while preserving supplies and all NPC conversations. Every page load/sign-in starts the traveler at their own doorstep; leaving a dungeon during the session returns to its entrance. Dungeon exploration and collected supplies remain saved even when the traveler returns home.
 
-Ancient ruins appear near settlements and on the atlas as diamonds. Approach an arch to choose whether to enter. The cave marker shows two separate states: hollow/filled diamond for unexplored/entered (check when all chambers are visited), and a supply mark (check when all deposits have been gathered). Dungeons contain 9–12 connected chambers, branching corridors, mineral deposits, timber, cloth, dried provisions, and stairs back to the surface. Click movement finds a walkable path through corridors. The dungeon map reveals visited chambers.
+Ancient ruins appear near settlements and on the atlas as diamonds. Approach an arch to choose whether to enter. The cave marker shows two separate states: hollow/filled diamond for unexplored/entered (check when all chambers are visited), and a supply mark (check when all deposits have been gathered). Dungeons contain 9–12 connected chambers, branching corridors, mineral deposits, timber, cloth, dried provisions, and stairs back to the surface. Click movement finds a walkable path through corridors. The dungeon atlas shows the connected floor plan, with unexplored chambers dimmed and explored chambers highlighted. The underground minimap follows the traveler at a closer scale.
 
 NPC conversation now shows only the current RPG dialogue line and topic choices. Past exchanges are available only through **Conversation journal**, with earlier pages available on demand. Replies still use persistent memory and authored dialogue rules rather than an LLM.
 
 The expansion adds biome-specific broadleaf trees and conifers, bushes, grass, flowers, reeds, personal gardens, denser scenery, correct backpack orientation, and less distant fog when zooming out.
 
 For an already configured Supabase backend, run the new `Expansion v2` section at the end of `backend/schema.sql` and redeploy the `world` function. For the SQLite backend, restart the updated server; it adds the new homes and resource-space schema without removing existing data. The public Pages build remains a local preview until that shared backend is connected.
+
+## Interface and camera update
+
+The UI uses flat cream panels, square controls, consistent line icons, teal actions, and coral/plum status accents. Drag horizontally to orbit and vertically to change elevation. Elevation stays between 18° and 70° above the horizon (32°–70° underground). The camera interpolates angles around the traveler rather than crossing through the orbit center. World labels use the current camera matrix on every frame.
+
+Surface minimaps scroll using cached terrain; the marker stays centered as the traveler walks. Dungeon lighting and fog are adjusted for the closer camera. Regression tests exercise the full dungeon scene transition, rendered-floor connectivity, extreme camera input, minimap scrolling, and save preservation.
+
+`dev/ui-preview.html` provides desktop and phone UI fixtures without loading WebGL or touching a traveler save. This is a development preview, not a gameplay session.
+
+![Flat interface and RPG dialogue fixture](docs/interface-preview-20260930.jpg)
