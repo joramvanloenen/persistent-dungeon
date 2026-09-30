@@ -1,0 +1,3 @@
+[functions.world]
+verify_jwt = false
+# The function validates the caller using Supabase Auth getUser before any storage access.
