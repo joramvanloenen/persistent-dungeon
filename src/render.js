@@ -1,6 +1,7 @@
 import * as T from '../vendor/three.module.js';
 import {resolveDungeon,ruinFor,caveWalkable,caveStatus,roomAt} from './dungeons.js?v=2';
-import {buildDungeon,findCavePath} from './dungeon-render.js?v=2';
+import {buildDungeon,findCavePath} from './dungeon-render.js?v=3';
+import {CAMERA_LIMITS,wrapAngle,clampPitch,advanceOrbit,orbitPosition} from './camera-controls.js?v=3';
 import {CHUNK,REGION,WATER,BIOMES,hash,heightAt,waterDistance,biomeAt,roadSegments,roadDistance,settlement,npcsFor,resourcesFor,nearestSettlement} from './world.js';
 const materials={};const mat=(name,color)=>materials[name]||(materials[name]=new T.MeshStandardMaterial({color,roughness:1,flatShading:true}));
 const geos={box:new T.BoxGeometry(1,1,1),trunk:new T.CylinderGeometry(.25,.45,1,5),pine:new T.ConeGeometry(1,1,6),rock:new T.IcosahedronGeometry(1,0),sphere:new T.IcosahedronGeometry(1,1),grass:new T.ConeGeometry(1,1,3)};
@@ -24,6 +25,7 @@ export function avatar(color=0xd5b370){
 export class WorldRenderer {
  constructor(container,{onWalk,onFrame}){
   this.container=container;this.onWalk=onWalk;this.onFrame=onFrame;this.chunks=new Map();this.nodes=new Map();this.npcs=new Map();this.villages=new Map();this.depleted=new Set();this.others=new Map();this.frame=0;this.keys={};this.player=null;this.target=null;this.yaw=.15;this.zoom=1;this.touchPoints=new Map();this.terrain=[];this.quality='balanced';this.ruins=new Map();this.homes=new Map();this.cave=null;this.caveModel=null;this.path=[];this.exploration={};
+  this.pitch=CAMERA_LIMITS.defaultPitch;this.cameraOrbit={yaw:this.yaw,pitch:this.pitch};this.cameraFocus=new T.Vector3();this.projectedLabel=new T.Vector3();
   this.scene=new T.Scene();this.scene.background=new T.Color(0x9aada0);this.scene.fog=new T.Fog(0x9aada0,440,950);
   this.camera=new T.PerspectiveCamera(40,1,.3,1500);
   this.renderer=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=T.PCFSoftShadowMap;this.renderer.outputColorSpace=T.SRGBColorSpace;this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.16;container.append(this.renderer.domElement);
@@ -35,9 +37,13 @@ export class WorldRenderer {
   this.resize=()=>{this.camera.aspect=container.clientWidth/container.clientHeight;this.camera.updateProjectionMatrix();this.renderer.setSize(container.clientWidth,container.clientHeight);};this.resize();window.addEventListener('resize',this.resize);
   window.addEventListener('keydown',e=>{if(['INPUT','TEXTAREA'].includes(e.target.tagName)||document.querySelector('dialog[open]'))return;this.keys[e.code]=true;if(['ArrowUp','ArrowDown','ArrowLeft','ArrowRight','Space'].includes(e.code))e.preventDefault();});window.addEventListener('keyup',e=>this.keys[e.code]=false);window.addEventListener('blur',()=>this.keys={});
   const c=this.renderer.domElement;c.addEventListener('contextmenu',e=>e.preventDefault());
-  c.addEventListener('pointerdown',e=>{c.setPointerCapture(e.pointerId);this.touchPoints.set(e.pointerId,{x:e.clientX,y:e.clientY});this.down={x:e.clientX,y:e.clientY,px:e.clientX,py:e.clientY,moved:false};if(this.touchPoints.size===2)this.pinch=this.pinchDistance();});
-  c.addEventListener('pointermove',e=>{if(!this.touchPoints.has(e.pointerId))return;this.touchPoints.set(e.pointerId,{x:e.clientX,y:e.clientY});if(this.touchPoints.size===2){const d=this.pinchDistance();this.zoom=Math.max(.55,Math.min(2.3,this.zoom*this.pinch/d));this.pinch=d;this.down.moved=true;return;}if(!this.down)return;const dx=e.clientX-this.down.px;if(Math.hypot(e.clientX-this.down.x,e.clientY-this.down.y)>9)this.down.moved=true;if(this.down.moved)this.yaw-=dx*.005;this.down.px=e.clientX;this.down.py=e.clientY;});
-  c.addEventListener('pointerup',e=>{this.touchPoints.delete(e.pointerId);if(this.down&&!this.down.moved&&this.player){const r=c.getBoundingClientRect();this.pointer.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);this.ray.setFromCamera(this.pointer,this.camera);const hit=this.ray.intersectObjects(this.terrain,false)[0];if(hit)this.onWalk({x:hit.point.x,z:hit.point.z});}this.down=null;});c.addEventListener('pointercancel',()=>{this.touchPoints.clear();this.down=null;});
+  c.addEventListener('pointerdown',e=>{c.setPointerCapture(e.pointerId);if(!this.touchPoints.size)this.gestureMoved=false;this.touchPoints.set(e.pointerId,{x:e.clientX,y:e.clientY,startX:e.clientX,startY:e.clientY});if(this.touchPoints.size===2){this.pinch=Math.max(1,this.pinchDistance());this.gestureMoved=true;}});
+  c.addEventListener('pointermove',e=>{const point=this.touchPoints.get(e.pointerId);if(!point)return;const dx=e.clientX-point.x,dy=e.clientY-point.y;point.x=e.clientX;point.y=e.clientY;
+   if(this.touchPoints.size===2){const d=Math.max(1,this.pinchDistance());this.zoom=Math.max(.55,Math.min(2.3,this.zoom*this.pinch/d));this.pinch=d;return;}
+   if(Math.hypot(e.clientX-point.startX,e.clientY-point.startY)>9)this.gestureMoved=true;
+   if(this.gestureMoved){this.yaw=wrapAngle(this.yaw-dx*.005);this.pitch=clampPitch(this.pitch+dy*.004,!!this.cave);}
+  });
+  c.addEventListener('pointerup',e=>{if(!this.touchPoints.has(e.pointerId))return;this.touchPoints.delete(e.pointerId);if(!this.gestureMoved&&!this.touchPoints.size&&this.player){const r=c.getBoundingClientRect();this.pointer.set(((e.clientX-r.left)/r.width)*2-1,-((e.clientY-r.top)/r.height)*2+1);this.ray.setFromCamera(this.pointer,this.camera);const hit=this.ray.intersectObjects(this.terrain,false)[0];if(hit)this.onWalk({x:hit.point.x,z:hit.point.z});}});c.addEventListener('pointercancel',()=>{this.touchPoints.clear();this.gestureMoved=true;});
   c.addEventListener('wheel',e=>{e.preventDefault();this.zoom=Math.max(.55,Math.min(2.3,this.zoom+e.deltaY*.0007));},{passive:false});
   this.loop=()=>{this.raf=requestAnimationFrame(this.loop);const dt=Math.min(.05,this.clock.getDelta());if(this.player)this.animate(dt);};this.loop();
  }
@@ -45,16 +51,15 @@ export class WorldRenderer {
  setPlayer(p){
   const next=p.dungeon?.id||null;if(next!==this.cave?.id)this.changeSpace(next);
   this.player={...p,x:p.dungeon?.x??p.x,z:p.dungeon?.z??p.z,dungeon:p.dungeon?{...p.dungeon}:null};this.exploration=p.caves||{};this.target=null;this.path=[];
-  const y=this.ground(this.player.x,this.player.z);this.hero.position.set(this.player.x,y,this.player.z);const dist=this.cave?38:145;
-  this.camera.position.set(this.player.x+Math.sin(this.yaw)*dist,y+dist,this.player.z+Math.cos(this.yaw)*dist);this.camera.lookAt(this.player.x,y,this.player.z);
+  const y=this.ground(this.player.x,this.player.z);this.hero.position.set(this.player.x,y,this.player.z);this.updateCamera(0,true);
   this.setHomes(this.homeList||[p.house]);if(!this.cave){this.cx=null;this.stream();}
  }
  changeSpace(id){
   if(this.caveModel){this.scene.remove(this.caveModel.group);for(const item of this.caveModel.disposable)item.dispose();this.caveModel=null;}
   this.cave=id?resolveDungeon(id):null;const outside=!this.cave;
   for(const c of this.chunks.values())c.group.visible=outside;for(const v of this.villages.values())v.group.visible=outside;for(const r of this.ruins.values())r.group.visible=outside;for(const h of this.homes.values())h.group.visible=outside;for(const o of this.others.values())o.visible=outside;
-  this.hemi.intensity=outside?2.3:.65;this.sun.intensity=outside?3.1:.6;this.lantern.visible=!outside;this.scene.background.setHex(outside?0x9aada0:0x101a18);this.scene.fog.color.setHex(outside?0x9aada0:0x101a18);
-  if(this.cave){this.caveModel=buildDungeon(this.cave);this.scene.add(this.caveModel.group);this.terrain=[this.caveModel.rayFloor];for(const n of this.caveModel.nodes.values())n.this.showNode(entry,!this.depleted.has(n.id));}else this.terrain=[...this.chunks.values()].map(c=>c.terrain);
+  this.hemi.intensity=outside?2.3:1.8;this.sun.intensity=outside?3.1:1.6;this.sun.castShadow=outside;this.lantern.visible=!outside;this.scene.background.setHex(outside?0x9aada0:0x25332c);this.scene.fog.color.setHex(outside?0x9aada0:0x25332c);
+  if(this.cave){this.caveModel=buildDungeon(this.cave);this.scene.add(this.caveModel.group);this.terrain=[this.caveModel.rayFloor];for(const [nodeId,n]of this.caveModel.nodes)this.showNode(n,!this.depleted.has(nodeId));}else this.terrain=[...this.chunks.values()].map(c=>c.terrain);
   this.labelContainer.replaceChildren();for(const item of [...this.npcs.values(),...this.villages.values(),...this.ruins.values(),...this.homes.values()])this.labelContainer.append(item.label);
  }
  setHomes(homes){
@@ -85,6 +90,12 @@ export class WorldRenderer {
  setOthers(players){const live=new Set();for(const p of players){if(p.id===this.player?.id)continue;live.add(p.id);let o=this.others.get(p.id);if(!o){o=avatar(0x91b6bb);this.scene.add(o);this.others.set(p.id,o);}o.visible=(p.space||'overworld')===(this.cave?.id||'overworld');o.position.set(p.x,this.cave?0:heightAt(p.x,p.z),p.z);}for(const [id,o]of this.others)if(!live.has(id)){this.scene.remove(o);this.others.delete(id);}}
  ground(x,z){if(this.cave)return 0;if(waterDistance(x,z)<6&&roadDistance(x,z,roadSegments(Math.floor(x/REGION),Math.floor(z/REGION)))<7)return WATER+1.1;return heightAt(x,z);}
  passable(x,z){if(this.cave)return caveWalkable(this.cave,x,z);for(const h of this.homes.values())if(Math.hypot(x-h.x,z-h.z)<5.6)return false;return waterDistance(x,z)>-3||roadDistance(x,z,roadSegments(Math.floor(x/REGION),Math.floor(z/REGION)))<7;}
+ updateCamera(dt,snap=false){
+  const p=this.player,focus=new T.Vector3(p.x,this.ground(p.x,p.z)+2.5,p.z);this.pitch=clampPitch(this.pitch,!!this.cave);this.yaw=wrapAngle(this.yaw);
+  if(snap){this.cameraFocus.copy(focus);this.cameraOrbit={yaw:this.yaw,pitch:this.pitch};}else{this.cameraFocus.lerp(focus,1-Math.exp(-dt*12));this.cameraOrbit=advanceOrbit(this.cameraOrbit,{yaw:this.yaw,pitch:this.pitch},dt,!!this.cave);}
+  const radius=(this.cave?48:216)*this.zoom,pos=orbitPosition(this.cameraFocus,this.cameraOrbit,radius);this.camera.position.set(pos.x,pos.y,pos.z);this.camera.up.set(0,1,0);this.camera.lookAt(this.cameraFocus);this.camera.updateMatrixWorld(true);
+  this.scene.fog.near=this.cave?radius*1.1:440*Math.max(1,this.zoom);this.scene.fog.far=this.cave?radius+190:1000*Math.max(1,this.zoom);
+ }
  animate(dt){
   const p=this.player;let vx=0,vz=0;
   if(!document.querySelector('dialog[open]')){
@@ -96,10 +107,10 @@ export class WorldRenderer {
   if(vx||vz){const nx=p.x+dx,nz=p.z+dz;if(this.passable(nx,nz)){p.x=nx;p.z=nz;moved=Math.hypot(dx,dz);this.hero.rotation.y=Math.atan2(vx,vz);}else if(this.passable(nx,p.z)){p.x=nx;moved=Math.abs(dx);}else if(this.passable(p.x,nz)){p.z=nz;moved=Math.abs(dz);}else this.target=null;}
   const y=this.ground(p.x,p.z);this.hero.position.set(p.x,y+Math.sin(this.clock.elapsedTime*12)*Math.min(moved*1.5,.15),p.z);this.ring.position.set(p.x,y+.2,p.z);
   if(p.dungeon){p.dungeon.x=p.x;p.dungeon.z=p.z;}for(const [i,leg]of this.hero.userData.legs.entries())leg.rotation.x=Math.sin(this.clock.elapsedTime*11+i*Math.PI)*Math.min(moved*4,.5);
-  const dist=(this.cave?32:160)*this.zoom,desired=new T.Vector3(p.x+Math.sin(this.yaw)*dist,p.y||y,p.z+Math.cos(this.yaw)*dist);desired.y=y+(this.cave?36:145)*this.zoom;this.scene.fog.near=this.cave?35:440*Math.max(1,this.zoom);this.scene.fog.far=this.cave?155:1000*Math.max(1,this.zoom);this.lantern.position.set(p.x,3.2,p.z);this.camera.position.lerp(desired,1-Math.exp(-dt*6));this.camera.lookAt(p.x,y+3,p.z);
+  this.updateCamera(dt);this.lantern.position.set(p.x,3.2,p.z);
   this.sun.position.set(p.x-85,y+175,p.z-90);this.sun.target.position.set(p.x,y,p.z);
   this.destination.visible=!!this.target;if(this.target)this.destination.position.set(this.target.x,this.ground(this.target.x,this.target.z)+.3,this.target.z);
-  if(this.frame++%20===0&&!this.cave)this.stream();if(this.caveModel)for(const f of this.caveModel.torches)f.scale.y=.65+Math.sin(this.clock.elapsedTime*5+f.position.x)*.08;if(this.frame%10===0)this.labels();this.onFrame({x:p.x,z:p.z,moved,dt});this.renderer.render(this.scene,this.camera);
+  if(this.frame++%20===0&&!this.cave)this.stream();if(this.caveModel)for(const f of this.caveModel.torches)f.scale.y=.65+Math.sin(this.clock.elapsedTime*5+f.position.x)*.08;this.labels();this.onFrame({x:p.x,z:p.z,moved,dt});this.renderer.render(this.scene,this.camera);
  }
  stream(){if(this.cave)return;const cx=Math.floor(this.player.x/CHUNK),cz=Math.floor(this.player.z/CHUNK),r=Math.min(4,Math.max(2,Math.ceil(this.zoom*1.6)));
   if(this.cx===cx&&this.cz===cz&&this.radius===r)return;this.cx=cx;this.cz=cz;this.radius=r;
@@ -164,8 +175,8 @@ export class WorldRenderer {
   if(this.cave){for(const e of this.labelContainer.children)e.style.display='none';return;}
   for(const n of [...this.npcs.values(),...this.villages.values(),...this.ruins.values(),...this.homes.values()]){
    const distance=Math.hypot(this.player.x-n.x,this.player.z-n.z),isVillage=!!n.npcs,isRuin=!!n.dungeonName,isHome=!!n.owner,visible=distance<(isRuin?420:isHome?170:isVillage?300:45);
-   const point=new T.Vector3(n.x,n.y+(isRuin?11:isVillage?14:isHome?10:4),n.z).project(this.camera);n.label.style.display=visible&&point.z<1?'block':'none';n.label.style.left=((point.x*.5+.5)*this.container.clientWidth)+'px';n.label.style.top=((-point.y*.5+.5)*this.container.clientHeight)+'px';
-   if(isRuin){const state=caveStatus(n.id,{caves:this.exploration},this.depleted);n.label.replaceChildren();const a=document.createElement('span'),b=document.createElement('span'),name=document.createElement('small');a.textContent=state.explored?'◈✓':state.entered?'◈':'◇';a.className=state.entered?'explored':'unexplored';a.title=state.explored?'All chambers explored':state.entered?'Previously entered':'Unexplored';b.textContent=state.cleared?'▣✓':'▣';b.className=state.cleared?'cleared':'supplies';b.title=state.cleared?'All resources gathered':`${state.total-state.collected} resources remain`;name.textContent=n.name;n.label.append(a,b,name);n.label.setAttribute('aria-label',`${n.name}: ${a.title}, ${b.title}`);}
+   const point=this.projectedLabel.set(n.x,n.y+(isRuin?11:isVillage?14:isHome?10:4),n.z).project(this.camera);n.label.style.display=visible&&point.z>-1&&point.z<1&&Math.abs(point.x)<1.15&&Math.abs(point.y)<1.15?'block':'none';n.label.style.left='0';n.label.style.top='0';n.label.style.transform=`translate3d(${(point.x*.5+.5)*this.container.clientWidth}px,${(-point.y*.5+.5)*this.container.clientHeight}px,0) translate(-50%,-100%)`;
+   if(isRuin){const state=caveStatus(n.id,{caves:this.exploration},this.depleted),stamp=[state.entered,state.explored,state.collected].join(':');if(n.labelStamp===stamp)continue;n.labelStamp=stamp;n.label.replaceChildren();const a=document.createElement('span'),b=document.createElement('span'),name=document.createElement('small');a.textContent=state.explored?'◈✓':state.entered?'◈':'◇';a.className=state.entered?'explored':'unexplored';a.title=state.explored?'All chambers explored':state.entered?'Previously entered':'Unexplored';b.textContent=state.cleared?'▣✓':'▣';b.className=state.cleared?'cleared':'supplies';b.title=state.cleared?'All resources gathered':`${state.total-state.collected} resources remain`;name.textContent=n.name;n.label.append(a,b,name);n.label.setAttribute('aria-label',`${n.name}: ${a.title}, ${b.title}`);}
   }
  }
  closest(){

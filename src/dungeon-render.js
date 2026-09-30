@@ -5,7 +5,7 @@ function material(color,emissive=0){return new T.MeshStandardMaterial({color,rou
 function m(geo,mat,x,y,z,sx,sy,sz){const mesh=new T.Mesh(geo,mat);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);mesh.castShadow=true;mesh.receiveShadow=true;return mesh;}
 export function buildDungeon(d){
  const group=new T.Group(),nodes=new Map(),torches=[],disposable=[],temp=new T.Object3D();
- const palettes=[[0x444e3e,0x384433,0x3b4e39],[0x666958,0x555a52,0x415254],[0x55545d,0x454754,0x403b52]],p=palettes[d.style];
+ const palettes=[[0x818770,0x536049,0x3b4e39],[0x999987,0x667065,0x415254],[0x92919c,0x5a5d70,0x403b52]],p=palettes[d.style];
  const floorMat=material(p[0]),wallMat=material(p[1]),darkMat=material(0x1e2822),stoneMat=material(0x7a7764),woodMat=material(0x827052),clothMat=material(0x9c9878),crystalMat=material(0x61a397,0x16382c),foodMat=material(0x9f735f),fireMat=material(0xffd485,0xff942a);disposable.push(floorMat,wallMat,darkMat,stoneMat,woodMat,clothMat,crystalMat,foodMat,fireMat);
  const floorTiles=[],wallTiles=[];
  for(let z=0;z<d.height;z++)for(let x=0;x<d.width;x++){if(d.cells[z*d.width+x])floorTiles.push([x,z]);else if([[1,0],[-1,0],[0,1],[0,-1]].some(([dx,dz])=>d.cells[(z+dz)*d.width+x+dx]))wallTiles.push([x,z]);}

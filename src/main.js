@@ -1,6 +1,6 @@
 import {Store} from './storage.js?v=2';
-import {WorldRenderer} from './render.js?v=2';
-import {drawMap,drawCaveMap} from './map.js?v=2';
+import {WorldRenderer} from './render.js?v=3';
+import {drawMap,drawCaveMap,drawMiniMap} from './map.js?v=3';
 import {BIOMES,CHUNK,LIMIT,biomeAt,nearestSettlement,waterDistance} from './world.js';
 import {caveStatus,roomAt,resolveDungeon} from './dungeons.js?v=2';
 import {npcGreeting} from './rules.js?v=2';
@@ -32,6 +32,7 @@ async function act(action){
 }
 function frame({x,z,moved}){
  if(!loaded)return;if(moved){dirty=true;const last=trail.at(-1)||player.dungeon||player;if(Math.hypot(x-last.x,z-last.z)>=.7)trail.push({x,z});}
+ if(moved||Date.now()-miniLast.time>350){drawMiniMap($('minimap'),{...player,x,z,dungeon:player.dungeon?{...player.dungeon,x,z}:null},{cave:world.cave,depleted:world.depleted,waypoint,heading:world.hero.rotation.y});miniLast={x,z,time:Date.now()};}
  if(Date.now()-(frame.uiTime||0)<220)return;frame.uiTime=Date.now();nearby=world.closest();
  const cave=world.cave,s=cave?null:nearestSettlement(x,z),biome=cave?cave.dungeonName:BIOMES[biomeAt(x,z)].name;
  $('location').textContent=cave?cave.dungeonName:s.distance<90?s.name:biome;$('biome').textContent=cave?'Underground':biome;$('coords').textContent=cave?'A way back is never far':`${Math.round(x)}, ${Math.round(z)}`;
@@ -43,7 +44,6 @@ function frame({x,z,moved}){
  $('nearby-tip').textContent=tip;$('secondary-tip').textContent=cave?'Click to navigate passages · E to gather · M for dungeon map':'WASD to move · scroll to zoom · drag to orbit';
  $('drink-button').disabled=busy||!!cave||s.distance>48&&waterDistance(x,z)>27;$('rest-button').disabled=busy||!!cave||s.distance>85&&Math.hypot(x-player.house.x,z-player.house.z)>14;$('eat-button').disabled=busy||player.inventory.berries<1;
  $('dungeon-status').hidden=!cave;if(cave){const room=roomAt(cave,x,z),progress=caveStatus(cave.id,player,world.depleted);$('dungeon-room').textContent=room===null?'The connecting passages':cave.rooms[room].name;$('dungeon-progress').textContent=`${progress.rooms}/${progress.totalRooms} chambers explored · ${progress.total-progress.collected} supplies remain`;}
- if(Date.now()-miniLast.time>(cave?1300:6500)||Math.hypot(x-miniLast.x,z-miniLast.z)>(cave?5:35)){if(cave)drawCaveMap($('minimap'),cave,{...player,dungeon:{...player.dungeon,x,z}},{depleted:world.depleted});else drawMap($('minimap'),{x,z},640,{x,z},{waypoint,visited:player.visited,home:player.house});miniLast={x,z,time:Date.now()};}
  if(!cave){for(const id of [...suppressed]){const r=resolveDungeon(id);if(r&&Math.hypot(r.x-x,r.z-z)>22)suppressed.delete(id);}if(nearby?.type==='entrance'&&!suppressed.has(nearby.id)&&!busy&&!document.querySelector('dialog[open]'))showEntrance(nearby);}
 }
 function walk(pos){if(!loaded||document.querySelector('dialog[open]'))return;if(!world.passable(pos.x,pos.z)){toast(world.cave?'A stone wall blocks the way.':'Deep water. Follow a road to find a bridge.');return;}if(!world.setWalkTarget(pos))toast('There is no passage to that spot.');}
@@ -63,7 +63,7 @@ async function speak(message){if(!activeNpc||busy||!message.trim())return;$('sen
 async function loadHistory(reset=false){if(reset){historyOffset=0;$('history-content').replaceChildren();$('history-title').textContent=`Conversations with ${activeNpc.name}`;}try{const r=await store.request('memory',{npc:activeNpc.id,personal:true,offset:historyOffset}),fragment=document.createDocumentFragment();for(const m of r.memories){const wrap=document.createElement('div');appendBubble(wrap,m.playerName||player.name,m.message,true);appendBubble(wrap,activeNpc.name,m.response);fragment.append(wrap);}if(reset&&!r.memories.length)$('history-content').textContent='Your story together is just beginning.';else $('history-content').prepend(fragment);historyOffset+=r.memories.length;$('history-earlier').hidden=!r.hasMore;if(reset)$('history-content').scrollTop=$('history-content').scrollHeight;}catch(e){toast(e.message);}}
 function showPack(){const inv=$('inventory');inv.replaceChildren();for(const [kind,symbol]of Object.entries({wood:'▥',stone:'◆',berries:'●',fiber:'≋'})){const item=document.createElement('div'),icon=document.createElement('span'),name=document.createElement('span'),count=document.createElement('b');icon.className='item-icon';icon.textContent=symbol;name.textContent=kind[0].toUpperCase()+kind.slice(1);count.textContent=player.inventory[kind];item.append(icon,name,count);inv.append(item);}
  $('journey-summary').textContent=`${player.visited.length} settlements visited · ${Object.keys(player.caves).length} dungeons entered · ${(player.distance/1000).toFixed(2)} km walked`;$('journal').replaceChildren();for(const e of events.filter(e=>e.type!=='move').slice(0,12)){const div=document.createElement('div');div.className='journal-entry';div.textContent=e.summary;const t=document.createElement('small');t.textContent=new Date(e.createdAt).toLocaleTimeString([],{hour:'2-digit',minute:'2-digit'});div.append(t);$('journal').append(div);}openDialog('pack-dialog');}
-function redrawMap(){if(world.cave){drawCaveMap($('atlas'),world.cave,{...player,dungeon:{...player.dungeon,x:world.player.x,z:world.player.z}},{detailed:true,depleted:world.depleted});$('map-scale').textContent='Discovered chambers';$('map-caption').textContent='Gold dots are supplies. The pale blue mark is the stair to the surface.';return;}
+function redrawMap(){if(world.cave){drawCaveMap($('atlas'),world.cave,{...player,dungeon:{...player.dungeon,x:world.player.x,z:world.player.z}},{detailed:true,depleted:world.depleted,heading:world.hero.rotation.y});$('map-scale').textContent='Dungeon layout';$('map-caption').textContent='Faint rooms are unexplored. Gold dots are supplies; teal marks the stairs.';return;}
  if(!mapCenter)mapCenter={x:world.player.x,z:world.player.z};drawMap($('atlas'),mapCenter,mapSpan,world.player,{detailed:true,waypoint,visited:player.visited,home:player.house});$('map-scale').textContent=`${(mapSpan/1000).toFixed(1)} km across`;$('map-caption').textContent='Diamonds mark ancient ruins. The house marks your cottage. Click to set a waypoint.';
 }
 async function loadWorld(){

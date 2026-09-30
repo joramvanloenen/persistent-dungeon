@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="en">
+<head>
+ <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+ <title>Evermere interface preview</title>
+ <link rel="stylesheet" href="../style.css?v=3">
+ <style>
+  body{overflow:auto;background:#e2e0cb;padding:14px;margin:0}header{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px}header strong{margin-right:auto;font-size:14px}header button{font-size:12px;min-height:34px;padding:6px 10px}iframe{display:block;width:100%;height:calc(100dvh - 92px);min-height:480px;border:1px solid #bebfab;margin:auto;background:#9baa92}.note{font-size:11px;color:#67695d;margin:8px 0}
+ </style>
+</head>
+<body>
+ <header><strong>Evermere · interface preview</strong><button data-view="hud">Field</button><button data-view="pack-dialog">Satchel</button><button data-view="map-dialog">Map</button><button data-view="talk-dialog">Dialogue</button><button data-view="entrance-dialog">Ruins</button><button data-view="account-dialog">Settings</button><button id="cave-view">Cave maps</button><button id="device">Phone width</button></header>
+ <iframe id="preview" title="Game interface preview"></iframe>
+ <p class="note">UI fixtures only. This preview does not load the game or change a saved traveler.</p>
+ <script type="module">
+  import {drawMap,drawMiniMap,drawCaveMap} from '../src/map.js?v=3';
+  import {generateDungeon} from '../src/dungeons.js?v=2';
+  import {createPlayer} from '../src/rules.js?v=2';
+  const frame=document.getElementById('preview'),source=await(await fetch('../index.html?v=3')).text(),doc=new DOMParser().parseFromString(source,'text/html');
+  doc.querySelectorAll('script').forEach(e=>e.remove());const base=doc.createElement('base');base.href=new URL('../',location.href).href;doc.head.prepend(base);
+  doc.getElementById('loading').hidden=true;doc.getElementById('save-status').textContent='Saved on this device';doc.getElementById('location').textContent='Willowhaven';doc.getElementById('nearby-tip').textContent='Mara · village keeper';doc.getElementById('interact-button').disabled=false;doc.getElementById('interact-button').innerHTML='Talk to Mara <kbd>E</kbd>';
+  doc.getElementById('connection-notice').hidden=false;const stage=doc.createElement('style');stage.textContent='#scene{background:#9baa92}#scene::before{content:"";position:absolute;inset:20% 25%;border:1px solid #aebca5;background:#93a88b}';doc.head.append(stage);
+  frame.srcdoc=doc.documentElement.outerHTML;await new Promise(resolve=>frame.onload=resolve);const ui=frame.contentDocument,p=createPlayer('ui-preview','Ada');
+  const show=id=>{ui.querySelectorAll('dialog[open]').forEach(d=>d.close());if(id!=='hud')ui.getElementById(id).showModal();};
+  ui.getElementById('account-name').textContent=p.name;ui.getElementById('rename-input').value=p.name;ui.getElementById('storage-explanation').textContent='Your home, supplies, and memories are saved on this device.';ui.getElementById('home-description').textContent='Your cottage in Willowhaven. You return to its doorstep each session.';
+  ui.getElementById('npc-name').textContent='Mara';ui.getElementById('npc-role').textContent='Village keeper';ui.getElementById('npc-stage').textContent='Mara pauses beside the well, listening.';ui.getElementById('conversation').innerHTML='<div class="bubble">Good to see you, Ada. There are old stones beyond the tree line. Take some provisions if you mean to find what lies beneath them.</div>';
+  ui.getElementById('entrance-title').textContent='Willowhaven Barrow';ui.getElementById('entrance-description').textContent='Cool air rises from a stair beneath the broken arch. Will you descend?';ui.getElementById('entrance-stats').innerHTML='<div><b>Exploration</b><span>Never entered</span></div><div><b>Supplies</b><span>38 deposits remain</span></div>';
+  ui.getElementById('inventory').innerHTML='<div><span class="item-icon">▥</span><span>Wood</span><b>12</b></div><div><span class="item-icon">◆</span><span>Stone</span><b>8</b></div><div><span class="item-icon">●</span><span>Berries</span><b>3</b></div><div><span class="item-icon">≋</span><span>Fiber</span><b>6</b></div>';
+  ui.getElementById('journey-summary').textContent='2 settlements visited · 1 dungeon entered · 1.24 km walked';ui.getElementById('journal').innerHTML='<div class="journal-entry">Gathered 4 wood<small>11:20</small></div><div class="journal-entry">Returned to Willowhaven Barrow<small>11:18</small></div>';
+  ui.getElementById('health').value=84;ui.getElementById('food').value=62;ui.getElementById('water').value=72;drawMiniMap(ui.getElementById('minimap'),p);drawMap(ui.getElementById('atlas'),p,2600,p,{detailed:true,home:p.house});ui.getElementById('map-scale').textContent='2.6 km across';
+  for(const button of document.querySelectorAll('[data-view]'))button.onclick=()=>show(button.dataset.view);
+  for(const [button,dialog]of [['pack-button','pack-dialog'],['map-button','map-dialog'],['account-button','account-dialog'],['interact-button','talk-dialog']])ui.getElementById(button).onclick=()=>show(dialog);
+  ui.getElementById('stay-button').onclick=()=>show('hud');ui.getElementById('enter-button').onclick=()=>show('hud');ui.getElementById('chat-form').onsubmit=e=>e.preventDefault();
+  const dungeon=generateDungeon(1,2),underground={...p,dungeon:{id:dungeon.id,...dungeon.spawn},caves:{[dungeon.id]:{rooms:[0]}}};document.getElementById('cave-view').onclick=()=>{drawMiniMap(ui.getElementById('minimap'),underground,{cave:dungeon});drawCaveMap(ui.getElementById('atlas'),dungeon,underground,{detailed:true});ui.getElementById('map-caption').textContent='Faint rooms are unexplored. Gold dots are supplies; teal marks the stairs.';ui.getElementById('map-scale').textContent='Dungeon layout';show('map-dialog');};
+  let phone=false;document.getElementById('device').onclick=()=>{phone=!phone;frame.style.width=phone?'390px':'100%';frame.style.maxWidth='100%';document.getElementById('device').textContent=phone?'Desktop width':'Phone width';};
+ </script>
+</body>
+</html>
