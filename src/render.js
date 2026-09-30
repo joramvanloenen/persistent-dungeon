@@ -1,8 +1,10 @@
 import * as T from '../vendor/three.module.js';
-import {resolveDungeon,ruinFor,caveWalkable,caveStatus,roomAt} from './dungeons.js?v=2';
+import {resolveDungeon,ruinFor,caveWalkable,caveStatus,roomAt,cavePathClear} from './dungeons.js?v=2';
 import {buildDungeon,findCavePath} from './dungeon-render.js?v=3';
 import {CAMERA_LIMITS,wrapAngle,clampPitch,advanceOrbit,orbitPosition} from './camera-controls.js?v=3';
-import {CHUNK,REGION,WATER,BIOMES,hash,heightAt,waterDistance,biomeAt,roadSegments,roadDistance,settlement,npcsFor,resourcesFor,nearestSettlement} from './world.js';
+import {CHUNK,REGION,WATER,BIOMES,hash,heightAt,waterDistance,biomeAt,roadSegments,roadDistance,settlement,npcsFor,resourcesFor,nearestSettlement,smithFor} from './world.js?v=6';
+import {equippedWeapon,guardiansFor,dummyFor} from './action-game.js?v=6';
+import {advanceMotion,beginJump} from './action-motion.js?v=6';
 const materials={};const mat=(name,color)=>materials[name]||(materials[name]=new T.MeshStandardMaterial({color,roughness:1,flatShading:true}));
 const geos={box:new T.BoxGeometry(1,1,1),trunk:new T.CylinderGeometry(.25,.45,1,5),pine:new T.ConeGeometry(1,1,6),rock:new T.IcosahedronGeometry(1,0),sphere:new T.IcosahedronGeometry(1,1),grass:new T.ConeGeometry(1,1,3)};
 function mesh(geo,material,x,y,z,sx=1,sy=1,sz=1){const m=new T.Mesh(geo,material);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=true;m.receiveShadow=true;return m;}
@@ -12,6 +14,7 @@ function roofGeo(){const g=new T.BufferGeometry();g.setAttribute('position',new 
  1,0,-1,0,1,1,1,0,1, 1,0,-1,0,1,-1,0,1,1
 ],3));g.computeVertexNormals();return g;}
 const roof=roofGeo();
+export function weaponModel(recipe){const g=new T.Group(),iron=mat('weaponIron',0xced6cd),grip=mat('weaponGrip',0x795437);g.add(mesh(geos.box,grip,0,.18,0,.14,.42,.16));if(recipe==='axe'){g.add(mesh(geos.box,grip,0,.9,0,.14,1.7,.14),mesh(geos.box,iron,.25,1.5,0,.7,.6,.18));}else{const length=recipe==='dagger'?.9:1.8;g.add(mesh(geos.box,iron,0,.5+length/2,0,.22,length,.08),mesh(geos.pine,iron,0,.5+length+.18,0,.2,.4,.08),mesh(geos.box,iron,0,.48,0,.6,.12,.14));}return g;}
 export function avatar(color=0xd5b370){
  const g=new T.Group(),boots=mat('boots',0x433c2c),skin=mat('skin',0xcdb392),cloth=mat('cloak'+color,color);
  const left=mesh(geos.box,boots,-.22,.4,0,.3,.8,.36),right=mesh(geos.box,boots,.22,.4,0,.3,.8,.36);g.add(left,right);
@@ -26,6 +29,7 @@ export class WorldRenderer {
  constructor(container,{onWalk,onFrame}){
   this.container=container;this.onWalk=onWalk;this.onFrame=onFrame;this.chunks=new Map();this.nodes=new Map();this.npcs=new Map();this.villages=new Map();this.depleted=new Set();this.others=new Map();this.frame=0;this.keys={};this.player=null;this.target=null;this.yaw=.15;this.zoom=1;this.touchPoints=new Map();this.terrain=[];this.quality='balanced';this.ruins=new Map();this.homes=new Map();this.cave=null;this.caveModel=null;this.path=[];this.exploration={};
   this.pitch=CAMERA_LIMITS.defaultPitch;this.cameraOrbit={yaw:this.yaw,pitch:this.pitch};this.cameraFocus=new T.Vector3();this.projectedLabel=new T.Vector3();
+  this.motion={stamina:100,height:0,velocity:0,swing:0};this.runToggled=false;this.opponents=new Map();
   this.scene=new T.Scene();this.scene.background=new T.Color(0x9aada0);this.scene.fog=new T.Fog(0x9aada0,440,950);
   this.camera=new T.PerspectiveCamera(40,1,.3,1500);
   this.renderer=new T.WebGLRenderer({antialias:true,powerPreference:'high-performance'});this.renderer.setPixelRatio(Math.min(devicePixelRatio,1.7));this.renderer.shadowMap.enabled=true;this.renderer.shadowMap.type=T.PCFSoftShadowMap;this.renderer.outputColorSpace=T.SRGBColorSpace;this.renderer.toneMapping=T.ACESFilmicToneMapping;this.renderer.toneMappingExposure=1.16;container.append(this.renderer.domElement);
@@ -51,10 +55,12 @@ export class WorldRenderer {
  setPlayer(p){
   const next=p.dungeon?.id||null;if(next!==this.cave?.id)this.changeSpace(next);
   this.player={...p,x:p.dungeon?.x??p.x,z:p.dungeon?.z??p.z,dungeon:p.dungeon?{...p.dungeon}:null};this.exploration=p.caves||{};this.target=null;this.path=[];
+  this.motion??={stamina:100,height:0,velocity:0,swing:0};this.motion.height=0;this.motion.velocity=0;this.syncActionState(p);
   const y=this.ground(this.player.x,this.player.z);this.hero.position.set(this.player.x,y,this.player.z);this.updateCamera(0,true);
   this.setHomes(this.homeList||[p.house]);if(!this.cave){this.cx=null;this.stream();}
  }
  changeSpace(id){
+  for(const foe of this.opponents?.values()||[]){this.scene.remove(foe.object);foe.label?.remove();}this.opponents=new Map();
   if(this.caveModel){this.scene.remove(this.caveModel.group);for(const item of this.caveModel.disposable)item.dispose();this.caveModel=null;}
   this.cave=id?resolveDungeon(id):null;const outside=!this.cave;
   for(const c of this.chunks.values())c.group.visible=outside;for(const v of this.villages.values())v.group.visible=outside;for(const r of this.ruins.values())r.group.visible=outside;for(const h of this.homes.values())h.group.visible=outside;for(const o of this.others.values())o.visible=outside;
@@ -62,6 +68,16 @@ export class WorldRenderer {
   if(this.cave){this.caveModel=buildDungeon(this.cave);this.scene.add(this.caveModel.group);this.terrain=[this.caveModel.rayFloor];for(const [nodeId,n]of this.caveModel.nodes)this.showNode(n,!this.depleted.has(nodeId));}else this.terrain=[...this.chunks.values()].map(c=>c.terrain);
   this.labelContainer.replaceChildren();for(const item of [...this.npcs.values(),...this.villages.values(),...this.ruins.values(),...this.homes.values()])this.labelContainer.append(item.label);
  }
+ syncActionState(p){
+  this.combat=p.combat||{};this.opponents??=new Map();const weapon=equippedWeapon(p);
+  if(this.weaponId!==weapon?.id){if(this.heldWeapon)this.hero.remove(this.heldWeapon);this.heldWeapon=weapon?weaponModel(weapon.recipe):null;this.weaponId=weapon?.id;if(this.heldWeapon){this.heldWeapon.position.set(.65,1,.2);this.hero.add(this.heldWeapon);}}
+  const wanted=this.cave?guardiansFor(this.cave):[...this.villages.values()].map(dummyFor);
+  const ids=new Set(wanted.map(n=>n.id));for(const [id,n]of this.opponents)if(!ids.has(id)){this.scene.remove(n.object);n.label.remove();this.opponents.delete(id);}
+  for(const n of wanted){let item=this.opponents.get(n.id);if(!item){const object=new T.Group();object.position.set(n.x,this.cave?0:n.y,n.z);const body=mat(n.dummy?'dummyBody':'sentinelBody',n.dummy?0xb59156:0x707e6d);object.add(mesh(geos.box,body,0,1.3,0,n.dummy?1:1.9,n.dummy?1.8:2.5,.9),mesh(geos.sphere,body,0,2.8,0,.6,.6,.6));if(n.dummy)object.add(mesh(geos.box,body,0,1.8,0,2.5,.2,.2));else for(const x of [-.25,.25])object.add(mesh(geos.sphere,mat('sentinelEyes',0xed7b59),x,2.9,.51,.1,.12,.1));const label=document.createElement('div');label.className='world-label';this.labelContainer.append(label);item={...n,object,label};this.opponents.set(n.id,item);this.scene.add(object);}const hp=this.combat[n.id]?.health??n.health;item.currentHealth=hp;item.object.visible=hp>0||!!n.dummy;item.object.rotation.z=n.dummy&&hp===0?Math.PI/2:0;item.label.textContent=`${n.name} · ${hp} HP`;}
+ }
+ jump(){this.motion??={stamina:100,height:0,velocity:0,swing:0};return beginJump(this.motion);}
+ attackSwing(){if(!this.heldWeapon||this.motion.swing>0)return false;this.hero.rotation.y=wrapAngle(this.cameraOrbit.yaw+Math.PI);this.motion.swing=.65;return true;}
+ attackTarget(weapon){let best=null,distance=weapon.reach;for(const foe of this.opponents.values()){if(!foe.object.visible)continue;const dx=foe.x-this.player.x,dz=foe.z-this.player.z,d=Math.hypot(dx,dz),dot=d?(dx*Math.sin(this.hero.rotation.y)+dz*Math.cos(this.hero.rotation.y))/d:1;if(d<=distance&&dot>.25&&(!this.cave||cavePathClear(this.cave,this.player,foe))){best=foe;distance=d;}}return best;}
  setHomes(homes){
   if(!homes)return;this.homeList=homes;const wanted=new Set(homes.filter(Boolean).map(h=>h.id));
   for(const [id,h]of this.homes)if(!wanted.has(id)){this.scene.remove(h.group);h.label.remove();this.homes.delete(id);}
@@ -103,14 +119,15 @@ export class WorldRenderer {
    if(ax||az){this.target=null;this.path=[];const len=Math.hypot(ax,az);ax/=len;az/=len;vx=ax*Math.cos(this.yaw)+az*Math.sin(this.yaw);vz=-ax*Math.sin(this.yaw)+az*Math.cos(this.yaw);}
    else if(this.target){const d=Math.hypot(this.target.x-p.x,this.target.z-p.z);if(d<.65)this.target=this.path.shift()||null;else{vx=(this.target.x-p.x)/d;vz=(this.target.z-p.z)/d;}}
   }
-  const speed=this.cave?6.5:12,dx=vx*dt*speed,dz=vz*dt*speed;let moved=0;
+  const state=advanceMotion(this.motion,dt,{running:!document.querySelector('dialog[open]')&&(this.runToggled||this.keys.ShiftLeft||this.keys.ShiftRight),moving:!!(vx||vz)}),speed=(this.cave?6.5:12)*(state.running?1.65:1),dx=vx*dt*speed,dz=vz*dt*speed;let moved=0;
   if(vx||vz){const nx=p.x+dx,nz=p.z+dz;if(this.passable(nx,nz)){p.x=nx;p.z=nz;moved=Math.hypot(dx,dz);this.hero.rotation.y=Math.atan2(vx,vz);}else if(this.passable(nx,p.z)){p.x=nx;moved=Math.abs(dx);}else if(this.passable(p.x,nz)){p.z=nz;moved=Math.abs(dz);}else this.target=null;}
-  const y=this.ground(p.x,p.z);this.hero.position.set(p.x,y+Math.sin(this.clock.elapsedTime*12)*Math.min(moved*1.5,.15),p.z);this.ring.position.set(p.x,y+.2,p.z);
+  const y=this.ground(p.x,p.z);this.hero.position.set(p.x,y+state.height+Math.sin(this.clock.elapsedTime*(state.running?17:12))*Math.min(moved*1.5,.15),p.z);this.ring.position.set(p.x,y+.2,p.z);if(this.heldWeapon){const swing=this.motion.swing/ .65;this.heldWeapon.rotation.x=.2+Math.sin(swing*Math.PI)*1.8;this.heldWeapon.rotation.z=-.25+Math.sin(swing*Math.PI)*.7;}
   if(p.dungeon){p.dungeon.x=p.x;p.dungeon.z=p.z;}for(const [i,leg]of this.hero.userData.legs.entries())leg.rotation.x=Math.sin(this.clock.elapsedTime*11+i*Math.PI)*Math.min(moved*4,.5);
   this.updateCamera(dt);this.lantern.position.set(p.x,3.2,p.z);
   this.sun.position.set(p.x-85,y+175,p.z-90);this.sun.target.position.set(p.x,y,p.z);
   this.destination.visible=!!this.target;if(this.target)this.destination.position.set(this.target.x,this.ground(this.target.x,this.target.z)+.3,this.target.z);
-  if(this.frame++%20===0&&!this.cave)this.stream();if(this.caveModel)for(const f of this.caveModel.torches)f.scale.y=.65+Math.sin(this.clock.elapsedTime*5+f.position.x)*.08;this.labels();this.onFrame({x:p.x,z:p.z,moved,dt});this.renderer.render(this.scene,this.camera);
+  if(this.frame++%20===0&&!this.cave)this.stream();if(this.caveModel)for(const f of this.caveModel.torches)f.scale.y=.65+Math.sin(this.clock.elapsedTime*5+f.position.x)*.08;this.labels();for(const foe of this.opponents.values()){const visible=foe.object.visible&&Math.hypot(p.x-foe.x,p.z-foe.z)<45;foe.label.style.display=visible?'block':'none';if(visible){const v=this.projectedLabel.set(foe.x,(this.cave?0:foe.y)+4,foe.z).project(this.camera);foe.label.style.left=`${(v.x*.5+.5)*this.container.clientWidth}px`;foe.label.style.top=`${(-v.y*.5+.5)*this.container.clientHeight}px`;}}
+  this.onFrame({x:p.x,z:p.z,moved,dt,running:state.running,stamina:state.stamina});this.renderer.render(this.scene,this.camera);
  }
  stream(){if(this.cave)return;const cx=Math.floor(this.player.x/CHUNK),cz=Math.floor(this.player.z/CHUNK),r=Math.min(4,Math.max(2,Math.ceil(this.zoom*1.6)));
   if(this.cx===cx&&this.cz===cz&&this.radius===r)return;this.cx=cx;this.cz=cz;this.radius=r;
@@ -122,6 +139,7 @@ export class WorldRenderer {
   const rx=Math.floor(this.player.x/REGION),rz=Math.floor(this.player.z/REGION),vWant=new Set();
   for(let a=rx-1;a<=rx+1;a++)for(let b=rz-1;b<=rz+1;b++){const ruin=ruinFor(a,b);if(Math.hypot(ruin.x-this.player.x,ruin.z-this.player.z)<CHUNK*(r+1)&&!this.ruins.has(ruin.id))this.addRuin(ruin);const s=settlement(a,b);if(Math.hypot(s.x-this.player.x,s.z-this.player.z)<CHUNK*3.2){vWant.add(s.id);if(!this.villages.has(s.id))this.addVillage(s);}}
   for(const [id,v]of this.villages)if(!vWant.has(id)){this.scene.remove(v.group);v.label.remove();for(const npc of v.npcs){this.npcs.get(npc.id)?.label.remove();this.npcs.delete(npc.id);}this.villages.delete(id);}
+  this.syncActionState(this.player);
  }
  addChunk(cx,cz){
   const group=new T.Group(),ids=[],disposable=[],segments=roadSegments(Math.floor(cx*CHUNK/REGION),Math.floor(cz*CHUNK/REGION));
@@ -168,8 +186,10 @@ export class WorldRenderer {
   }
   // Central stone well.
   const well=new T.Mesh(new T.CylinderGeometry(2,2,1.1,10),mat('well',0x9a9b81));well.position.set(s.x,s.y+.55,s.z-1);group.add(well);group.add(mesh(geos.box,mat('wellWater',0x406e68),s.x,s.y+1.13,s.z-1,2.7,.05,2.7));
-  const npcs=npcsFor(s);for(const n of npcs){const person=avatar([0xb29054,0x6c8c76,0xa5826c][npcs.indexOf(n)]);person.position.set(n.x,n.y,n.z);person.rotation.y=hash(s.rx,s.rz,npcs.indexOf(n)+1900)*6.28;group.add(person);const label=document.createElement('div');label.className='world-label';label.textContent=n.name;this.labelContainer.append(label);this.npcs.set(n.id,{...n,object:person,label});}
+  const smith=smithFor(s);if(smith){const x=smith.forgeX,z=smith.forgeZ,y=s.y;group.add(mesh(geos.box,mat('forgeStone',0x6e7564),x,y+1,z,5,2,4),mesh(geos.box,mat('forgeFire',0xeb7130),x,y+1.4,z+2.03,3,.7,.1),mesh(geos.box,mat('forgeChimney',0x626957),x-1.7,y+4,z-1,1,6,1),mesh(geos.box,mat('anvil',0x485852),x+4,y+1,z+1,2.5,.7,1.1),mesh(geos.box,mat('anvilBase',0x795a3b),x+4,y+.4,z+1,1,1,1));}
+  const npcs=npcsFor(s);for(const n of npcs){const person=avatar([0xb29054,0x6c8c76,0xa5826c,0x8c6350][npcs.indexOf(n)]);person.position.set(n.x,n.y,n.z);person.rotation.y=hash(s.rx,s.rz,npcs.indexOf(n)+1900)*6.28;group.add(person);const label=document.createElement('div');label.className='world-label';label.textContent=n.role==='smith'?`${n.name} · Smith`:n.name;this.labelContainer.append(label);this.npcs.set(n.id,{...n,object:person,label});}
   const label=document.createElement('div');label.className='world-label village';label.textContent=s.name;this.labelContainer.append(label);this.villages.set(s.id,{...s,group,npcs,label});this.scene.add(group);
+  if(this.player)this.syncActionState(this.player);
  }
  labels(){
   if(this.cave){for(const e of this.labelContainer.children)e.style.display='none';return;}
@@ -183,7 +203,7 @@ export class WorldRenderer {
   if(!this.player)return null;const p=this.player;
   if(this.cave){const e=this.caveModel.exit;if(Math.hypot(p.x-e.x,p.z-e.z)<7)return {...e,distance:Math.hypot(p.x-e.x,p.z-e.z)};let best=null,dist=4.5;for(const n of this.caveModel.nodes.values()){if(this.depleted.has(n.id)||n.occupied)continue;const d=Math.hypot(n.x-p.x,n.z-p.z);if(d<dist){dist=d;best={...n,type:'resource',distance:d};}}return best;}
   for(const r of this.ruins.values()){const d=Math.hypot(p.x-r.x,p.z-r.z);if(d<13)return {...r,type:'entrance',distance:d};}
-  let best=null,dist=10.5;for(const n of this.npcs.values()){const d=Math.hypot(n.x-p.x,n.z-p.z);if(d<dist){dist=d;best={...n,type:'npc',distance:d};}}if(best)return best;
+  let best=null,dist=10.5;for(const n of this.npcs.values()){const d=Math.hypot(n.x-p.x,n.z-p.z);if(d<dist){dist=d;best={...n,type:n.role==='smith'?'smith':'npc',distance:d};}}if(best)return best;
   for(const n of this.nodes.values()){if(this.depleted.has(n.id)||n.occupied)continue;const d=Math.hypot(n.x-p.x,n.z-p.z);if(d<dist){dist=d;best={...n,type:'resource',distance:d};}}
   if(!best&&p.house&&Math.hypot(p.x-p.house.doorX,p.z-p.house.doorZ)<8)return {...p.house,type:'home'};return best;
  }

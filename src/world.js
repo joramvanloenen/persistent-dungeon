@@ -86,8 +86,9 @@ export function roadSegments(rx,rz) {
 export function roadDistance(x,z,segments) {let d=Infinity;for(const [a,b]of segments)d=Math.min(d,segDistance(x,z,a,b));return d;}
 export function npcsFor(s) {
  const first=['Mara','Orin','Elsbeth','Rowan','Asta','Tomas','Sable','Finn','Iona','Bram','Maeve','Hugo'];
- return ['gatherer','keeper','wayfarer'].map((role,i)=>({id:`${s.id}:npc:${i}`,name:first[(Math.floor(hash(s.rx,s.rz,140)*first.length)+i*5)%first.length],role,village:s.name,x:s.x+[-12,14,3][i],z:s.z+[8,3,-17][i],y:s.y,home:s.id}));
+ const people=['gatherer','keeper','wayfarer'].map((role,i)=>({id:`${s.id}:npc:${i}`,name:first[(Math.floor(hash(s.rx,s.rz,140)*first.length)+i*5)%first.length],role,village:s.name,x:s.x+[-12,14,3][i],z:s.z+[8,3,-17][i],y:s.y,home:s.id}));const smith=smithFor(s);if(smith)people.push(smith);return people;
 }
+export function smithFor(s){if(hash(s.rx,s.rz,8150)<.25)return null;return {id:`${s.id}:npc:3`,name:['Bram','Orin','Asta','Hugo'][Math.floor(hash(s.rx,s.rz,8151)*4)],role:'smith',village:s.name,home:s.id,x:s.x-10,z:s.z-9,y:s.y,forgeX:s.x-18,forgeZ:s.z-9};}
 export function resourcesFor(cx,cz) {
  const nodes=[],roads=roadSegments(Math.floor(cx*CHUNK/REGION),Math.floor(cz*CHUNK/REGION));
  for(let i=0;i<44;i++){
@@ -100,7 +101,7 @@ export function resourcesFor(cx,cz) {
  }return nodes;
 }
 export function resolveResource(id){const m=/^r:(-?\d+):(-?\d+):(\d+)$/.exec(id);if(!m)return null;const cx=+m[1],cz=+m[2];if(Math.abs(cx*CHUNK)>LIMIT+CHUNK||Math.abs(cz*CHUNK)>LIMIT+CHUNK)return null;return resourcesFor(cx,cz).find(r=>r.id===id)||null;}
-export function resolveNpc(id){const m=/^v:(-?\d+):(-?\d+):npc:([0-2])$/.exec(id);if(!m)return null;return npcsFor(settlement(+m[1],+m[2]))[+m[3]];}
+export function resolveNpc(id){const m=/^v:(-?\d+):(-?\d+):npc:([0-3])$/.exec(id);if(!m)return null;return npcsFor(settlement(+m[1],+m[2]))[+m[3]]||null;}
 export function initialPlayer(id,name='Traveler') {
   const bytes=new Uint32Array(2);globalThis.crypto.getRandomValues(bytes);
   let s;

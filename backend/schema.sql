@@ -39,7 +39,7 @@ begin
  select revision into current_rev from game_players where id=actor_id for update;
  if not found then raise exception 'Traveler not found'; end if;
  if current_rev<>expected_revision then raise exception 'Your traveler changed in another session. Reload and try again.'; end if;
- if (select count(*) from game_events where actor=actor_id and created_at>now()-interval '1 minute')>90 then raise exception 'Too many actions. Wait a moment.'; end if;
+ if (select count(*) from game_events where actor=actor_id and created_at>now()-interval '1 minute')>300 then raise exception 'Too many actions. Wait a moment.'; end if;
  if action_type='talk' and (select count(*) from game_events where actor=actor_id and type='talk' and created_at>now()-interval '1 minute')>=20 then raise exception 'Give your conversation a moment.'; end if;
  if action_type='gather' then
   insert into game_nodes(id,cx,cz,actor) values(extra->>'resource',(split_part(extra->>'resource',':',2))::integer,(split_part(extra->>'resource',':',3))::integer,actor_id);
@@ -92,7 +92,7 @@ begin
  select revision into current_rev from game_players where id=actor_id for update;
  if not found then raise exception 'Traveler not found';end if;
  if current_rev<>expected_revision then raise exception 'Your traveler changed in another session. Reload and try again.';end if;
- if (select count(*) from game_events where actor=actor_id and created_at>now()-interval '1 minute')>90 then raise exception 'Too many actions. Wait a moment.';end if;
+ if (select count(*) from game_events where actor=actor_id and created_at>now()-interval '1 minute')>300 then raise exception 'Too many actions. Wait a moment.';end if;
  if action_type='talk' and (select count(*) from game_events where actor=actor_id and type='talk' and created_at>now()-interval '1 minute')>=20 then raise exception 'Give your conversation a moment.';end if;
  if action_type='gather' then
   insert into game_nodes(id,cx,cz,actor,space) values(extra->>'resource',(split_part(extra->>'resource',':',2))::integer,(split_part(extra->>'resource',':',3))::integer,actor_id,coalesce(extra->>'space','overworld'));

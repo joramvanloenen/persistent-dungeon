@@ -1,5 +1,6 @@
-import {initialPlayer,nearestSettlement,waterDistance,resolveResource,resolveNpc,LIMIT,roadDistance,roadSegments,REGION} from './world.js';
-import {normalizePlayer} from './homes.js?v=2';
+import {initialPlayer,nearestSettlement,waterDistance,resolveResource,resolveNpc,LIMIT,roadDistance,roadSegments,REGION,smithFor,settlement} from './world.js?v=6';
+import {normalizePlayer} from './homes.js?v=6';
+import {applyActionGame} from './action-game.js?v=6';
 import {resolveDungeon,resolveCaveResource,cavePathClear,caveWalkable,roomAt,ruinFor} from './dungeons.js?v=2';
 export const RESOURCE_LABELS={wood:'wood',stone:'stone',berries:'berries',fiber:'fiber'};
 export function cleanName(s){return String(s||'Traveler').trim().slice(0,28)||'Traveler';}
@@ -21,18 +22,19 @@ export function validateAction(input,a,context={}) {
  case 'move':{
   const x=Number(a.x),z=Number(a.z);if(!Number.isFinite(x)||!Number.isFinite(z)||Math.abs(x)>LIMIT||Math.abs(z)>LIMIT)throw Error('That destination is outside Evermere.');
   const start=p.dungeon||p,trail=Array.isArray(a.trail)?a.trail:[];if(trail.length>80||trail.some(q=>!Number.isFinite(q.x)||!Number.isFinite(q.z)))throw Error('Invalid movement trail.');const points=[start,...trail,{x,z}];const distance=points.slice(1).reduce((sum,q,i)=>sum+Math.hypot(q.x-points[i].x,q.z-points[i].z),0),elapsed=Math.max(2,(now-(p.updatedAt||now))/1000);
-  if(distance>Math.min(240,elapsed*18+18))throw Error('You are moving too far in one step.');
+  if(distance>Math.min(240,elapsed*24+18))throw Error('You are moving too far in one step.');
   if(p.dungeon){if(a.space!==p.dungeon.id)throw Error('Your location changed. Reload and try again.');const d=resolveDungeon(p.dungeon.id);if(points.slice(1).some((q,i)=>!cavePathClear(d,points[i],q)))throw Error('A dungeon wall blocks the way.');next.dungeon.x=x;next.dungeon.z=z;const room=roomAt(d,x,z);if(room!==null&&!next.caves[d.id].rooms.includes(room))next.caves[d.id].rooms.push(room);extra={dungeon:d.id,room};}
   else{if(a.space&&a.space!=='overworld')throw Error('You are not inside that dungeon.');if(waterDistance(x,z)<-4&&roadDistance(x,z,roadSegments(Math.floor(x/REGION),Math.floor(z/REGION)))>7)throw Error('Deep water blocks the way. Look for a bridge.');next.x=x;next.z=z;const s=nearestSettlement(x,z);if(s.distance<80&&!next.visited.includes(s.id))next.visited.push(s.id);}
-  next.distance=(p.distance||0)+distance;next.food=Math.max(5,p.food-distance*.008);next.water=Math.max(5,p.water-distance*.013);summary=`Walked ${Math.round(distance)} m`;break;
+  const running=Number(a.runDistance||0);if(!Number.isFinite(running)||running<0||running>distance+.5)throw Error('Invalid running distance.');next.actionStats.runDistance+=running;next.distance=(p.distance||0)+distance;next.food=Math.max(5,p.food-distance*.008-running*.005);next.water=Math.max(5,p.water-distance*.013-running*.008);summary=`${running>0?'Traveled':'Walked'} ${Math.round(distance)} m`;break;
  }
  case 'gather':{
   const r=p.dungeon?resolveCaveResource(String(a.target)):resolveResource(String(a.target));if(!r||r.space&&r.space!==p.dungeon?.id)throw Error('This resource does not exist here.');
   const pos=p.dungeon||p;if(Math.hypot(pos.x-r.x,pos.z-r.z)>(p.dungeon?5:11))throw Error('Walk closer to gather this.');
   if(p.dungeon&&!cavePathClear(resolveDungeon(p.dungeon.id),pos,r))throw Error('A dungeon wall blocks the way.');if(context.depleted)throw Error('Someone has already gathered this resource.');
   const count=r.count||(r.kind==='wood'?3:r.kind==='stone'?2:3);next.inventory[r.kind]+=count;
+  if(r.kind==='stone')next.inventory.iron+=p.dungeon?2:1;
   if(p.dungeon&&!next.caves[p.dungeon.id].gathered.includes(r.id))next.caves[p.dungeon.id].gathered.push(r.id);
-  extra={resource:r.id,space:r.space||'overworld',kind:r.kind,count};summary=`Gathered ${count} ${r.kind}`;break;
+  extra={resource:r.id,space:r.space||'overworld',kind:r.kind,count};summary=`Gathered ${count} ${r.kind}${r.kind==='stone'?` and ${p.dungeon?2:1} iron ore`:''}`;break;
  }
  case 'eat':if(next.inventory.berries<1)throw Error('Gather some berries first.');next.inventory.berries--;next.food=Math.min(100,next.food+24);summary='Ate berries';break;
  case 'drink':surface();if(nearestSettlement(p.x,p.z).distance>48&&waterDistance(p.x,p.z)>27)throw Error('Find a village well or the edge of a river.');next.water=100;summary='Filled water at a well or river';break;
@@ -42,11 +44,11 @@ export function validateAction(input,a,context={}) {
   surface();const npc=resolveNpc(String(a.target));if(!npc)throw Error('This person does not exist.');if(Math.hypot(p.x-npc.x,p.z-npc.z)>15)throw Error('Walk closer to speak.');
   const message=String(a.message||'').trim();if(!message||message.length>800)throw Error('Write a message of 1–800 characters.');const response=npcReply(npc,p,message,context.memories||[]);extra={npc:npc.id,message,response};summary=`Spoke with ${npc.name}`;break;
  }
- default:throw Error('Unknown action.');
+ default:{const result=applyActionGame(p,next,a,now);if(!result)throw Error('Unknown action.');({summary,extra}=result);}
  }
  next.revision=(p.revision||0)+1;next.updatedAt=now;return {player:next,extra,summary};
 }
-export function npcGreeting(npc,p,known=false){return known?`Ah, ${p.name}. Good to see you back in ${npc.village}. What news do you bring?`:{gatherer:`Mind the roots beyond the road, stranger. I'm ${npc.name}. The woods provide, if you know where to look.`,keeper:`Welcome to ${npc.village}. I'm ${npc.name}, keeper of this place. You've a roof here now; make yourself at home.`,wayfarer:`Another traveler! I'm ${npc.name}. Sit a moment. There's more beyond these hills than the map admits.`}[npc.role];}
+export function npcGreeting(npc,p,known=false){return known?`Ah, ${p.name}. Good to see you back in ${npc.village}. What news do you bring?`:{gatherer:`Mind the roots beyond the road, stranger. I'm ${npc.name}. The woods provide, if you know where to look.`,keeper:`Welcome to ${npc.village}. I'm ${npc.name}, keeper of this place. You've a roof here now; make yourself at home.`,wayfarer:`Another traveler! I'm ${npc.name}. Sit a moment. There's more beyond these hills than the map admits.`,smith:`I'm ${npc.name}. Bring iron ore, timber, and a few coins. Orange-hot metal, steady hands: that's how a blade begins.`}[npc.role];}
 export function npcReply(npc,p,message,memories) {
  const mine=memories.filter(m=>m.playerId===p.id),lower=message.toLowerCase(),words=lower.match(/[\p{L}\p{N}]{4,}/gu)||[];
  const stop=new Set(['remember','recall','about','what','told','know','that','your','have','would','please']);
@@ -57,10 +59,10 @@ export function npcReply(npc,p,message,memories) {
  if(/water|thirst|drink/.test(lower))return `Try the well in ${npc.village}. Cold, clean water. The riverbanks will do in a pinch, but cross the deep channels by a bridge.`;
  if(/food|hungry|berries|gather|surviv/.test(lower))return 'Those red berry bushes beyond the cottages will fill your belly. Save some for the old ruins. Wood, stone, and good fiber are worth carrying too.';
  if(/road|where|village|settlement|travel/.test(lower))return `Follow the ochre road, and sooner or later you'll find another hearth. Or leave it behind—there are older places hidden between the settlements.`;
- if(/build|craft/.test(lower))return 'Keep your timber straight and your stone dry. A cottage is a beginning. In time, there will be more to build.';
+ if(/smith|forge|weapon|craft/.test(lower)){const s=nearestSettlement(p.x,p.z);let best=null,dist=Infinity;for(let x=s.rx-2;x<=s.rx+2;x++)for(let z=s.rz-2;z<=s.rz+2;z++){const n=smithFor(settlement(x,z));if(n&&Math.hypot(p.x-n.x,p.z-n.z)<dist){best=n;dist=Math.hypot(p.x-n.x,p.z-n.z);}}return `${best.name} keeps a forge in ${best.village}. Look for the hammer mark on your atlas. Gather stone to find iron ore, or buy a material bundle. The smith asks a coin fee; sell spare supplies to earn it.`;}
  if(/hello|hi\b|hey|greet/.test(lower))return npcGreeting(npc,p,mine.length>0);
  if(match&&match.playerId!==p.id)return `${match.playerName||'Another traveler'} spoke of something similar: “${match.message}” Strange how stories find each other.`;
- const starts={gatherer:'They say the woods keep secrets. People do too.',keeper:'I hear a good many tales by this well.',wayfarer:'On the road, a story can be worth as much as a meal.'};
+ const starts={gatherer:'They say the woods keep secrets. People do too.',keeper:'I hear a good many tales by this well.',wayfarer:'On the road, a story can be worth as much as a meal.',smith:'Iron holds its shape. I hold onto a good story.'};
  return `${starts[npc.role]} ${/\?$/.test(message)?`I can't answer that yet, ${p.name}. But I'll keep your question in mind.`:`“${message}” I'll remember your words, ${p.name}.`}`;
 }
 export function createPlayer(id,name,plot=0){const p=normalizePlayer({...initialPlayer(id,cleanName(name)),introduced:false,updatedAt:Date.now()},plot);p.x=p.house.doorX;p.z=p.house.doorZ;return p;}

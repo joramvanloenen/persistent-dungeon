@@ -50,7 +50,7 @@ const server=http.createServer(async(req,res)=>{
    }
    const token=String(req.headers.authorization||'').replace(/^Bearer /,''),session=db.prepare('SELECT account_id FROM sessions WHERE token=? AND expires>?').get(token,Date.now());
    if(!session)return send({error:'Sign in to your traveler.'},401);
-   const actor=session.account_id;if(limited(actor,100))return send({error:'Too many actions. Wait a minute.'},429);
+   const actor=session.account_id;if(limited(actor,300))return send({error:'Too many actions. Wait a minute.'},429);
    let p=stateOf(actor);db.exec('BEGIN IMMEDIATE');try{
     const fresh=!p;if(fresh){p=createPlayer(actor);db.prepare('INSERT INTO players VALUES(?,?,?,?)').run(actor,JSON.stringify(p),0,Date.now());}
     let home=db.prepare('SELECT * FROM homes WHERE owner=?').get(actor);

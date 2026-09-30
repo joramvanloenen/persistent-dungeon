@@ -77,3 +77,15 @@ NPC speech is the main visual focus, followed by clearly grouped reply choices. 
 The development preview includes 320, 360, 390, and 430 px phone layouts, a keyboard-sized viewport, and a live overlap/touch-target audit. Layout checks and all 17 automated regression tests pass.
 
 ![Mobile dialogue fixture](docs/mobile-dialogue-20260930.jpg)
+
+## Action and the town forge
+
+Hold **Shift** to run, press **Space** to jump, and **F** to swing an equipped weapon. Touch screens have Run, Jump, and Attack buttons. Running and jumping use regenerating stamina; running distance, jumps, and attacks are recorded. Jumping can evade a sentinel's counterattack. Village practice dummies let you try a new weapon; dungeon stone sentinels drop coins and iron ore when defeated. Defeated sentinels remain defeated for that traveler. If overwhelmed, the traveler wakes at home with their supplies.
+
+Most towns have a smith and a visible furnace/anvil. The atlas marks those towns with a hammer. Approach the smith to open the crafting catalog: iron dagger (10 strikes), short sword (14), and iron axe (16). New and existing travelers receive 24 starting coins once. Gather stone/mineral deposits for iron ore, buy material bundles, or sell spare wood, stone, and fiber to the smith.
+
+Each job consumes the displayed coin fee, ore, and wood. Heat the billet for 6–9 seconds until it glows orange, then transfer it to the anvil. Overheating makes it spark, fizzle, and break apart. Strike the highlighted square within 2 seconds; a missed or wrong strike loses progress, and three misses require heating again. Replacement billets are included in the paid session. Completed weapons are saved and equipped automatically; the satchel can switch equipment. Paid jobs and their timing also survive reloads. Abandoning consumes the paid fee and materials.
+
+The action rules run in local, Node/SQLite, and Supabase modes. Configured servers need the updated source; Supabase also needs the updated `apply_game_action` function from `backend/schema.sql` for its gameplay rate limit. No new tables are needed. The public Pages version retains its existing local-preview save mode until a shared backend is configured.
+
+`dev/forge-preview.html` is a disposable UI playtest using the real crafting rules, with a heating-time advance button. It never writes a traveler save. Automated checks cover save migration, forging windows and penalties, duplicate completion, combat reach/cooldowns, jump physics, rendered equipment, and local/server reload persistence.

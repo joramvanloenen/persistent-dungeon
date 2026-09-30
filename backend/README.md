@@ -36,4 +36,10 @@ Place it behind HTTPS with a persistent disk and backups, then set `apiUrl` in `
 - The world is 65.4 km across with streamed terrain, six biomes, lake basins, continuous river channels, roads, bridges, and thousands of deterministic settlements. Rendered objects are low-poly meshes, without external artwork.
 - Building is intentionally not implemented yet. Resource IDs, persistent action events, generator version, and authoritative mutation checks provide the foundation.
 
+## Action and forge update
+
+Deploy the updated shared source to enable smith payments, material trading, timed forging, equipment, jump/attack events, and saved sentinel progression. Player JSON gains these fields automatically while preserving existing inventory, homes, and memories. Node/SQLite needs a server restart. Supabase needs the updated `world` function and the final `apply_game_action` definition in `schema.sql`, whose general action limit is now 300/minute to support gameplay; the conversation limit stays 20/minute. No new tables are required.
+
+Each accepted forge step and combat action is stored atomically with its event. Paid forge jobs store their phase, start time, deadline, pattern step, and mistakes. Crafted weapons and equipment survive reloads; the action validator rejects unpaid, distant, mistimed, stale, or duplicate attempts. Sentinel health and rewards are stored per traveler.
+
 Back up the database. Static source in GitHub is not a backup of live world data.

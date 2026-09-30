@@ -6,6 +6,7 @@ import {CAMERA_LIMITS} from '../src/camera-controls.js';
 import {generateDungeon,TILE} from '../src/dungeons.js';
 import {createPlayer} from '../src/rules.js';
 import {drawMiniMap,drawCaveMap} from '../src/map.js';
+import {guardiansFor} from '../src/action-game.js';
 
 function label(){return {style:{},textContent:'',append(){},replaceChildren(){},setAttribute(){},remove(){}};}
 function rendererFixture(){
@@ -37,6 +38,13 @@ test('rapid orbit changes and extreme vertical drags never cross the pole or col
   assert.ok(world.camera.position.y>world.cameraFocus.y);world.camera.getWorldDirection(direction);assert.ok(direction.y<0);assert.equal(world.camera.up.y,1);
  }
  world.cameraOrbit={yaw:Math.PI-.01,pitch:.7};world.yaw=-Math.PI+.01;world.pitch=.7;world.updateCamera(1/60);assert.ok(Math.abs(world.cameraOrbit.yaw)>3.12);
+});
+test('the full renderer animates jumps and equipped strikes, and hides saved defeated sentinels',()=>{
+ const world=rendererFixture(),p=createPlayer('action-render','Ada'),d=generateDungeon(1,2),foe=guardiansFor(d)[0];globalThis.document.querySelector=()=>null;
+ p.weapons=[{id:'sword',recipe:'sword',name:'Short sword',damage:18,reach:5.5}];p.equipped='sword';p.dungeon={id:d.id,x:foe.x,z:foe.z-2};world.setPlayer(p);
+ Object.assign(world,{clock:{elapsedTime:0},ring:new T.Object3D(),destination:new T.Object3D(),keys:{},frame:1,renderer:{render(){}},onFrame(){}});world.yaw=Math.PI;world.updateCamera(0,true);assert.ok(world.heldWeapon.parent===world.hero);assert.equal(world.attackSwing(),true);assert.equal(world.attackTarget(p.weapons[0]).id,foe.id);assert.equal(world.jump(),true);
+ let peak=0;for(let i=0;i<100;i++){world.clock.elapsedTime+=1/60;world.animate(1/60);peak=Math.max(peak,world.hero.position.y);}assert.ok(peak>1.5);assert.equal(world.motion.height,0);assert.equal(world.motion.swing,0);
+ p.combat[foe.id]={health:0};world.syncActionState(p);assert.equal(world.opponents.get(foe.id).object.visible,false);world.syncActionState({...p,equipped:null});assert.equal(world.heldWeapon,null);
 });
 function canvasFixture(){
  const ops=[],stack=[];let m=[1,0,0,1,0,0];const point=(x,y)=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];

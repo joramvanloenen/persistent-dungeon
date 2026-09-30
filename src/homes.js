@@ -10,4 +10,4 @@ export function homeFor(player,plot=0){
  const rotation=angle+Math.PI,y=heightAt(x,z);
  return {id:`home:${player.id}`,owner:player.id,ownerName:player.name,village:s.id,villageName:s.name,plot,x,z,y,rotation,doorX:x+Math.sin(rotation)*8,doorZ:z+Math.cos(rotation)*8};
 }
-export function normalizePlayer(input,plot=input.house?.plot??0){const p=structuredClone(input);p.caves??={};p.dungeon??=null;p.introduced??=p.revision>0;p.house=homeFor(p,plot);return p;}
+export function normalizePlayer(input,plot=input.house?.plot??0){const p=structuredClone(input);p.caves??={};p.dungeon??=null;p.introduced??=p.revision>0;p.house=homeFor(p,plot);p.coins??=24;p.inventory??={wood:0,stone:0,berries:3,fiber:0};p.inventory.iron??=0;p.weapons??=[];p.equipped??=null;p.forge??=null;p.combat??={};p.actionStats??={jumps:0,attacks:0,defeated:0,runDistance:0};return p;}

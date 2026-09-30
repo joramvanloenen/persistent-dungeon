@@ -3,7 +3,7 @@
 <head>
  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
  <title>Evermere interface preview</title>
- <link rel="stylesheet" href="../style.css?v=4.1">
+ <link rel="stylesheet" href="../style.css?v=6">
  <style>
   body{overflow:auto;background:#e2e0cb;padding:14px;margin:0}header{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px}header strong{margin-right:auto;font-size:14px}header button{font-size:12px;min-height:34px;padding:6px 10px}iframe{box-sizing:content-box;display:block;width:calc(100% - 2px);height:calc(100dvh - 112px);min-height:480px;border:1px solid #bebfab;margin:auto;background:#9baa92}.note{font-size:11px;color:#67695d;margin:8px 0}
  </style>
@@ -14,11 +14,11 @@
  <p class="note">UI fixtures only. This preview does not load the game or change a saved traveler.</p>
  <output id="layout-audit" class="note" aria-live="polite"></output>
  <script type="module">
-  import {drawMap,drawMiniMap,drawCaveMap} from '../src/map.js?v=5';
+  import {drawMap,drawMiniMap,drawCaveMap} from '../src/map.js?v=6';
   import {generateDungeon} from '../src/dungeons.js?v=2';
-  import {createPlayer} from '../src/rules.js?v=2';
+  import {createPlayer} from '../src/rules.js?v=6';
   import {installUILayout} from '../src/ui-layout.js?v=4';
-  const frame=document.getElementById('preview'),source=await(await fetch('../index.html?v=4.1')).text(),doc=new DOMParser().parseFromString(source,'text/html');
+  const frame=document.getElementById('preview'),source=await(await fetch('../index.html?v=6')).text(),doc=new DOMParser().parseFromString(source,'text/html');
   doc.querySelectorAll('script').forEach(e=>e.remove());const base=doc.createElement('base');base.href=new URL('../',location.href).href;doc.head.prepend(base);
   doc.getElementById('loading').hidden=true;doc.getElementById('save-status').textContent='Saved on this device';doc.getElementById('location').textContent='Willowhaven';doc.getElementById('nearby-tip').textContent='Mara · village keeper';doc.getElementById('interact-button').disabled=false;doc.getElementById('interact-button').innerHTML='Talk to Mara <kbd>E</kbd>';
   doc.getElementById('connection-notice').hidden=false;const stage=doc.createElement('style');stage.textContent='#scene{background:#9baa92}#scene::before{content:"";position:absolute;inset:20% 25%;border:1px solid #aebca5;background:#93a88b}';doc.head.append(stage);
@@ -28,7 +28,7 @@
    const name=e=>e.id||e.textContent.trim().slice(0,30);
    for(const e of controls){const r=e.getBoundingClientRect();if(w<=760&&(r.height<43.9||r.width<43.9))issues.push('Small target: '+name(e));if(r.left<-.5||r.right>w+.5)issues.push('Outside screen: '+name(e));}
    for(let i=0;i<controls.length;i++)for(let j=i+1;j<controls.length;j++){const a=controls[i],b=controls[j],ar=a.getBoundingClientRect(),br=b.getBoundingClientRect();if(a.contains(b)||b.contains(a))continue;if(Math.min(ar.right,br.right)-Math.max(ar.left,br.left)>.5&&Math.min(ar.bottom,br.bottom)-Math.max(ar.top,br.top)>.5)issues.push('Intersecting: '+name(a)+' / '+name(b));}
-   if(w<=760)for(const group of ui.querySelectorAll('.top-actions,.quick-items,.dialogue-choices,.dialogue-footer,.inline-form,.map-tools')){const targets=controls.filter(e=>group.contains(e));for(let i=0;i<targets.length;i++)for(let j=i+1;j<targets.length;j++){const a=targets[i].getBoundingClientRect(),b=targets[j].getBoundingClientRect(),dx=Math.max(0,a.left-b.right,b.left-a.right),dy=Math.max(0,a.top-b.bottom,b.top-a.bottom);if(Math.hypot(dx,dy)<7.9)issues.push('Tight spacing: '+name(targets[i])+' / '+name(targets[j]));}}
+   if(w<=760)for(const group of ui.querySelectorAll('.top-actions,.quick-items,.action-controls,.forge-grid,.dialogue-choices,.dialogue-footer,.inline-form,.map-tools')){const targets=controls.filter(e=>group.contains(e));for(let i=0;i<targets.length;i++)for(let j=i+1;j<targets.length;j++){const a=targets[i].getBoundingClientRect(),b=targets[j].getBoundingClientRect(),dx=Math.max(0,a.left-b.right,b.left-a.right),dy=Math.max(0,a.top-b.bottom,b.top-a.bottom);if(Math.hypot(dx,dy)<7.9)issues.push('Tight spacing: '+name(targets[i])+' / '+name(targets[j]));}}
    if(ui.documentElement.scrollWidth>w)issues.push('Horizontal overflow');document.getElementById('layout-audit').textContent=w+' × '+h+' · '+(issues.length?issues.join(' · '):'PASS: no overlapping controls; mobile targets ≥44px and gaps ≥8px.');
   }
   const queueAudit=()=>requestAnimationFrame(()=>requestAnimationFrame(audit));

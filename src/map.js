@@ -1,5 +1,5 @@
 import {ruinFor,TILE,roomAt} from './dungeons.js?v=2';
-import {BIOMES,REGION,biomeAt,heightAt,waterDistance,roadSegments,roadDistance,settlement} from './world.js';
+import {BIOMES,REGION,biomeAt,heightAt,waterDistance,roadSegments,roadDistance,settlement,smithFor} from './world.js?v=6';
 const miniCache=new WeakMap(),roomCache=new WeakMap();
 function playerMarker(ctx,x,y,heading=0,size=7){
  ctx.save();ctx.translate(x,y);ctx.rotate(Math.PI-heading);ctx.fillStyle='#fffaf0';ctx.strokeStyle='#087d79';ctx.lineWidth=2;
@@ -19,7 +19,7 @@ export function drawMap(canvas,center,span,player,{detailed=false,waypoint=null,
  }
  const toPixel=(x,z)=>[(x-center.x)/span*w+w/2,(z-center.z)/span*w+h/2];
  const rx=Math.floor(center.x/REGION),rz=Math.floor(center.z/REGION),r=Math.ceil(span/REGION/2)+1;
- for(let a=rx-r;a<=rx+r;a++)for(let b=rz-r;b<=rz+r;b++){const s=settlement(a,b),[px,py]=toPixel(s.x,s.z);if(px<10||py<10||px>w-10||py>h-10)continue;ctx.fillStyle=visited.includes(s.id)?'#ffd07e':'#d1ac63';ctx.strokeStyle='#3c4336';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(px,py,detailed?5:3,0,Math.PI*2);ctx.fill();ctx.stroke();if(detailed){ctx.font='12px Arial, sans-serif';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='#354333';ctx.strokeText(s.name,px,py-12);ctx.fillStyle='#fff7e2';ctx.fillText(s.name,px,py-12);}}
+ for(let a=rx-r;a<=rx+r;a++)for(let b=rz-r;b<=rz+r;b++){const s=settlement(a,b),[px,py]=toPixel(s.x,s.z);if(px<10||py<10||px>w-10||py>h-10)continue;ctx.fillStyle=visited.includes(s.id)?'#ffd07e':'#d1ac63';ctx.strokeStyle='#3c4336';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(px,py,detailed?5:3,0,Math.PI*2);ctx.fill();ctx.stroke();if(detailed){ctx.font='12px Arial, sans-serif';ctx.textAlign='center';ctx.lineWidth=3;ctx.strokeStyle='#354333';ctx.strokeText(s.name,px,py-12);ctx.fillStyle='#fff7e2';ctx.fillText(s.name+(smithFor(s)?" ⚒":""),px,py-12);}}
  for(let a=rx-r;a<=rx+r;a++)for(let b=rz-r;b<=rz+r;b++){const ruin=ruinFor(a,b),[px,py]=toPixel(ruin.x,ruin.z);if(px<6||py<6||px>w-6||py>h-6)continue;ctx.fillStyle='#e1d5e6';ctx.strokeStyle='#735078';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(px,py-5);ctx.lineTo(px+5,py);ctx.lineTo(px,py+5);ctx.lineTo(px-5,py);ctx.closePath();ctx.fill();ctx.stroke();}
  if(home){const [px,py]=toPixel(home.x,home.z);ctx.fillStyle='#ffb23e';ctx.strokeStyle='#4d4835';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(px,py-8);ctx.lineTo(px+7,py-1);ctx.lineTo(px+5,py-1);ctx.lineTo(px+5,py+6);ctx.lineTo(px-5,py+6);ctx.lineTo(px-5,py-1);ctx.lineTo(px-7,py-1);ctx.closePath();ctx.fill();ctx.stroke();}
  if(waypoint)waypointMarker(ctx,...toPixel(waypoint.x,waypoint.z));

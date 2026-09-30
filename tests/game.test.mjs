@@ -7,7 +7,7 @@ test('generation has stable settlements, NPCs, resources, and finite seamless te
  assert.deepEqual(settlement(-2,4),settlement(-2,4));assert.deepEqual(resourcesFor(-5,3),resourcesFor(-5,3));
  for(let x=-400;x<400;x+=17)for(let z=-200;z<200;z+=19)assert.ok(Number.isFinite(heightAt(x,z)));
  const s=settlement(-2,4);assert.ok(waterDistance(s.x,s.z)>125);assert.equal(heightAt(s.x,s.z),s.y);
- const n=npcsFor(s);assert.equal(n.length,3);assert.equal(new Set(n.map(n=>n.id)).size,3);
+ const n=npcsFor(s);assert.deepEqual(n.slice(0,3).map(n=>n.role),['gatherer','keeper','wayfarer']);assert.equal(new Set(n.map(n=>n.id)).size,n.length);
  for(const r of resourcesFor(4,-3))assert.deepEqual(resolveResource(r.id),r);
 });
 test('gather validates proximity and rejects already claimed nodes',()=>{
