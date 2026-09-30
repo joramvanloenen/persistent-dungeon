@@ -39,7 +39,8 @@ test('rapid orbit changes and extreme vertical drags never cross the pole or col
  world.cameraOrbit={yaw:Math.PI-.01,pitch:.7};world.yaw=-Math.PI+.01;world.pitch=.7;world.updateCamera(1/60);assert.ok(Math.abs(world.cameraOrbit.yaw)>3.12);
 });
 function canvasFixture(){
- const ops=[],ctx={save(){},restore(){},translate(...a){ops.push(['translate',...a]);},rotate(){},beginPath(){},moveTo(){},lineTo(){},closePath(){},fill(){},stroke(){},arc(){},fillRect(...a){ops.push(['floor',...a]);},fillText(){},strokeText(){},drawImage(...a){ops.push(['crop',...a.slice(1)]);}};
+ const ops=[],stack=[];let m=[1,0,0,1,0,0];const point=(x,y)=>[m[0]*x+m[2]*y+m[4],m[1]*x+m[3]*y+m[5]];
+ const ctx={save(){stack.push(m.slice());},restore(){m=stack.pop();},translate(x,y){m[4]+=m[0]*x+m[2]*y;m[5]+=m[1]*x+m[3]*y;ops.push(['translate',x,y]);},rotate(a){const c=Math.cos(a),s=Math.sin(a),[aa,b,cc,d]=m;m[0]=aa*c+cc*s;m[1]=b*c+d*s;m[2]=cc*c-aa*s;m[3]=d*c-b*s;},beginPath(){},moveTo(x,y){ops.push(['tip',...point(x,y)]);},lineTo(){},closePath(){},fill(){},stroke(){},arc(x,y){ops.push(['mark',...point(x,y)]);},fillRect(...a){ops.push(['floor',...a]);},fillText(text,x,y){ops.push(['text',text,...point(x,y)]);},strokeText(){},drawImage(...a){ops.push(['crop',...a.slice(1)]);ops.push(['imageMatrix',...m]);}};
  return {width:190,height:190,ops,getContext:()=>ctx};
 }
 test('surface minimap tracks motion without regenerating terrain and cave maps show connected floors',()=>{
@@ -49,4 +50,18 @@ test('surface minimap tracks motion without regenerating terrain and cave maps s
  const d=generateDungeon(-2,3),atlas=canvasFixture();atlas.width=760;atlas.height=540;drawCaveMap(atlas,d,{...p,dungeon:{id:d.id,...d.spawn},caves:{[d.id]:{rooms:[0]}}},{detailed:true});
  assert.equal(atlas.ops.filter(x=>x[0]==='floor').length,d.cells.reduce((n,v)=>n+v,0)+1);
  const local=canvasFixture();drawMiniMap(local,{...p,dungeon:{id:d.id,...d.spawn}},{cave:d});const pos=local.ops.findLast(x=>x[0]==='translate');assert.ok(Math.abs(pos[1]-95)<.001&&Math.abs(pos[2]-95)<.001);
+});
+test('surface and cave minimaps align camera forward with map up and retain coverage while rotating',()=>{
+ const world=rendererFixture(),p=createPlayer('camera-minimap','Ada'),direction=new T.Vector3();world.setPlayer(p);
+ let generated=0;globalThis.document={createElement:()=>{generated++;return canvasFixture();}};
+ const map=canvasFixture(),caveMap=canvasFixture(),d=generateDungeon(-2,3);
+ for(const yaw of [0,Math.PI/4,Math.PI/2,Math.PI,Math.PI*1.5,-Math.PI+.001]){
+  world.yaw=yaw;world.updateCamera(0,true);world.camera.getWorldDirection(direction);const heading=Math.atan2(direction.x,direction.z),cameraYaw=world.cameraOrbit.yaw;
+  drawMiniMap(map,p,{heading,cameraYaw});drawMiniMap(caveMap,{...p,dungeon:{id:d.id,...d.spawn}},{cave:d,heading,cameraYaw});
+  for(const canvas of [map,caveMap]){const tip=canvas.ops.findLast(o=>o[0]==='tip');assert.ok(Math.abs(tip[1]-95)<1e-8);assert.ok(Math.abs(tip[2]-88)<1e-8);const north=canvas.ops.findLast(o=>o[0]==='text');assert.ok(Math.abs(north[2]-(95+Math.sin(cameraYaw)*83))<1e-8);assert.ok(Math.abs(north[3]-(95-Math.cos(cameraYaw)*83))<1e-8);}
+  const crop=map.ops.findLast(o=>o[0]==='crop');assert.ok(crop[1]>=0&&crop[2]>=0&&crop[1]+crop[3]<=380&&crop[2]+crop[4]<=380);
+ }
+ assert.equal(generated,1,'turning in place reuses the same terrain image');
+ // Move close to the old cache boundary; the diagonal crop must stay inside its terrain image.
+ drawMiniMap(map,{...p,x:p.x+190,z:p.z+190},{cameraYaw:Math.PI/4});const crop=map.ops.findLast(o=>o[0]==='crop');assert.equal(generated,2);assert.ok(crop[1]>=0&&crop[2]>=0&&crop[1]+crop[3]<=380&&crop[2]+crop[4]<=380);
 });

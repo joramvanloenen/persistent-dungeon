@@ -1,13 +1,13 @@
 import {Store} from './storage.js?v=2';
 import {WorldRenderer} from './render.js?v=3';
-import {drawMap,drawCaveMap,drawMiniMap} from './map.js?v=3';
+import {drawMap,drawCaveMap,drawMiniMap} from './map.js?v=5';
 import {BIOMES,CHUNK,LIMIT,biomeAt,nearestSettlement,waterDistance} from './world.js';
 import {caveStatus,roomAt,resolveDungeon} from './dungeons.js?v=2';
 import {npcGreeting} from './rules.js?v=2';
 import {installUILayout} from './ui-layout.js?v=4';
 const $=id=>document.getElementById(id);
 const detachUILayout=installUILayout(),touchControls=window.matchMedia('(pointer: coarse)');window.addEventListener('pagehide',detachUILayout,{once:true});
-let store=new Store(),world,player,nearby=null,busy=false,dirty=false,activeNpc=null,waypoint=null,miniLast={x:Infinity,z:Infinity,time:0},events=[],mapSpan=2600,mapCenter=null,saveTimer,syncTimer,loaded=false,trail=[],historyOffset=0,entrance=null,suppressed=new Set();
+let store=new Store(),world,player,nearby=null,busy=false,dirty=false,activeNpc=null,waypoint=null,miniLast={x:Infinity,z:Infinity,yaw:null,time:0},events=[],mapSpan=2600,mapCenter=null,saveTimer,syncTimer,loaded=false,trail=[],historyOffset=0,entrance=null,suppressed=new Set();
 function toast(message){$('toast').textContent=message;$('toast').classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').classList.remove('show'),4300);}
 function status(message){$('save-status').textContent=message;}
 function openDialog(id){$(id).showModal();if(world)world.keys={};}
@@ -34,7 +34,8 @@ async function act(action){
 }
 function frame({x,z,moved}){
  if(!loaded)return;if(moved){dirty=true;const last=trail.at(-1)||player.dungeon||player;if(Math.hypot(x-last.x,z-last.z)>=.7)trail.push({x,z});}
- if(moved||Date.now()-miniLast.time>350){drawMiniMap($('minimap'),{...player,x,z,dungeon:player.dungeon?{...player.dungeon,x,z}:null},{cave:world.cave,depleted:world.depleted,waypoint,heading:world.hero.rotation.y});miniLast={x,z,time:Date.now()};}
+ const cameraYaw=world.cameraOrbit.yaw,now=Date.now(),turned=miniLast.yaw===null||Math.abs(Math.atan2(Math.sin(cameraYaw-miniLast.yaw),Math.cos(cameraYaw-miniLast.yaw)))>.0005;
+ if(moved||turned||now-miniLast.time>350){drawMiniMap($('minimap'),{...player,x,z,dungeon:player.dungeon?{...player.dungeon,x,z}:null},{cave:world.cave,depleted:world.depleted,waypoint,heading:world.hero.rotation.y,cameraYaw});miniLast={x,z,yaw:cameraYaw,time:now};}
  if(Date.now()-(frame.uiTime||0)<220)return;frame.uiTime=Date.now();nearby=world.closest();
  const cave=world.cave,s=cave?null:nearestSettlement(x,z),biome=cave?cave.dungeonName:BIOMES[biomeAt(x,z)].name;
  $('location').textContent=cave?cave.dungeonName:s.distance<90?s.name:biome;$('biome').textContent=cave?'Underground':biome;$('coords').textContent=cave?'A way back is never far':`${Math.round(x)}, ${Math.round(z)}`;

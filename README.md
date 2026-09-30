@@ -62,6 +62,8 @@ The UI uses flat cream panels, square controls, consistent line icons, teal acti
 
 Surface minimaps scroll using cached terrain; the marker stays centered as the traveler walks. Dungeon lighting and fog are adjusted for the closer camera. Regression tests exercise the full dungeon scene transition, rendered-floor connectivity, extreme camera input, minimap scrolling, and save preservation.
 
+Minimaps also rotate with the camera's smoothed yaw, including when turning in place. Camera forward is always at the top; the north marker travels around the edge and the player arrow shows facing relative to the camera. The surface terrain cache includes the diagonal crop needed for rotation, and dungeon floors use the same orientation. `dev/minimap-preview.html` compares north-up references with camera views without changing saves.
+
 `dev/ui-preview.html` provides desktop and phone UI fixtures without loading WebGL or touching a traveler save. This is a development preview, not a gameplay session.
 
 ![Flat interface and RPG dialogue fixture](docs/interface-preview-20260930.jpg)
