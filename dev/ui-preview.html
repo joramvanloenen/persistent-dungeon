@@ -3,25 +3,36 @@
 <head>
  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
  <title>Evermere interface preview</title>
- <link rel="stylesheet" href="../style.css?v=3">
+ <link rel="stylesheet" href="../style.css?v=4">
  <style>
   body{overflow:auto;background:#e2e0cb;padding:14px;margin:0}header{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px}header strong{margin-right:auto;font-size:14px}header button{font-size:12px;min-height:34px;padding:6px 10px}iframe{display:block;width:100%;height:calc(100dvh - 92px);min-height:480px;border:1px solid #bebfab;margin:auto;background:#9baa92}.note{font-size:11px;color:#67695d;margin:8px 0}
  </style>
 </head>
 <body>
- <header><strong>Evermere · interface preview</strong><button data-view="hud">Field</button><button data-view="pack-dialog">Satchel</button><button data-view="map-dialog">Map</button><button data-view="talk-dialog">Dialogue</button><button data-view="entrance-dialog">Ruins</button><button data-view="account-dialog">Settings</button><button id="cave-view">Cave maps</button><button id="device">Phone width</button></header>
+ <header><strong>Evermere · interface preview</strong><button data-view="hud">Field</button><button data-view="pack-dialog">Satchel</button><button data-view="map-dialog">Map</button><button data-view="talk-dialog">Dialogue</button><button data-view="entrance-dialog">Ruins</button><button data-view="account-dialog">Settings</button><button id="cave-view">Cave maps</button><select id="preview-size" aria-label="Preview screen size"><option value="desktop">Desktop</option><option value="390,700">Phone 390 × 700</option><option value="360,640">Phone 360 × 640</option><option value="320,568">Phone 320 × 568</option><option value="430,800">Phone 430 × 800</option><option value="390,350">Keyboard-sized 390 × 350</option></select></header>
  <iframe id="preview" title="Game interface preview"></iframe>
  <p class="note">UI fixtures only. This preview does not load the game or change a saved traveler.</p>
+ <output id="layout-audit" class="note" aria-live="polite"></output>
  <script type="module">
   import {drawMap,drawMiniMap,drawCaveMap} from '../src/map.js?v=3';
   import {generateDungeon} from '../src/dungeons.js?v=2';
   import {createPlayer} from '../src/rules.js?v=2';
-  const frame=document.getElementById('preview'),source=await(await fetch('../index.html?v=3')).text(),doc=new DOMParser().parseFromString(source,'text/html');
+  import {installUILayout} from '../src/ui-layout.js?v=4';
+  const frame=document.getElementById('preview'),source=await(await fetch('../index.html?v=4')).text(),doc=new DOMParser().parseFromString(source,'text/html');
   doc.querySelectorAll('script').forEach(e=>e.remove());const base=doc.createElement('base');base.href=new URL('../',location.href).href;doc.head.prepend(base);
   doc.getElementById('loading').hidden=true;doc.getElementById('save-status').textContent='Saved on this device';doc.getElementById('location').textContent='Willowhaven';doc.getElementById('nearby-tip').textContent='Mara · village keeper';doc.getElementById('interact-button').disabled=false;doc.getElementById('interact-button').innerHTML='Talk to Mara <kbd>E</kbd>';
   doc.getElementById('connection-notice').hidden=false;const stage=doc.createElement('style');stage.textContent='#scene{background:#9baa92}#scene::before{content:"";position:absolute;inset:20% 25%;border:1px solid #aebca5;background:#93a88b}';doc.head.append(stage);
-  frame.srcdoc=doc.documentElement.outerHTML;await new Promise(resolve=>frame.onload=resolve);const ui=frame.contentDocument,p=createPlayer('ui-preview','Ada');
-  const show=id=>{ui.querySelectorAll('dialog[open]').forEach(d=>d.close());if(id!=='hud')ui.getElementById(id).showModal();};
+  frame.srcdoc=doc.documentElement.outerHTML;await new Promise(resolve=>frame.onload=resolve);const ui=frame.contentDocument,p=createPlayer('ui-preview','Ada');installUILayout(ui,frame.contentWindow);
+  function audit(){
+   const win=frame.contentWindow,w=win.innerWidth,h=win.innerHeight,issues=[],controls=[...ui.querySelectorAll('button,summary,input:not([type=file]),textarea,.button')].filter(e=>{const r=e.getBoundingClientRect(),s=win.getComputedStyle(e);return r.width&&r.height&&s.visibility!=='hidden'&&s.display!=='none'&&r.top<h&&r.bottom>0;});
+   const name=e=>e.id||e.textContent.trim().slice(0,30);
+   for(const e of controls){const r=e.getBoundingClientRect();if(w<=760&&(r.height<43.9||r.width<43.9))issues.push('Small target: '+name(e));if(r.left<-.5||r.right>w+.5)issues.push('Outside screen: '+name(e));}
+   for(let i=0;i<controls.length;i++)for(let j=i+1;j<controls.length;j++){const a=controls[i],b=controls[j],ar=a.getBoundingClientRect(),br=b.getBoundingClientRect();if(a.contains(b)||b.contains(a))continue;if(Math.min(ar.right,br.right)-Math.max(ar.left,br.left)>.5&&Math.min(ar.bottom,br.bottom)-Math.max(ar.top,br.top)>.5)issues.push('Intersecting: '+name(a)+' / '+name(b));}
+   for(const group of ui.querySelectorAll('.top-actions,.quick-items,.dialogue-choices,.dialogue-footer,.inline-form,.map-tools')){const targets=controls.filter(e=>group.contains(e));for(let i=0;i<targets.length;i++)for(let j=i+1;j<targets.length;j++){const a=targets[i].getBoundingClientRect(),b=targets[j].getBoundingClientRect(),dx=Math.max(0,a.left-b.right,b.left-a.right),dy=Math.max(0,a.top-b.bottom,b.top-a.bottom);if(Math.hypot(dx,dy)<7.9)issues.push('Tight spacing: '+name(targets[i])+' / '+name(targets[j]));}}
+   if(ui.documentElement.scrollWidth>w)issues.push('Horizontal overflow');document.getElementById('layout-audit').textContent=w+' × '+h+' · '+(issues.length?issues.join(' · '):'PASS: no overlapping controls; mobile targets ≥44px and gaps ≥8px.');
+  }
+  const queueAudit=()=>requestAnimationFrame(()=>requestAnimationFrame(audit));
+  const show=id=>{ui.querySelectorAll('dialog[open]').forEach(d=>d.close());if(id!=='hud')ui.getElementById(id).showModal();queueAudit();};
   ui.getElementById('account-name').textContent=p.name;ui.getElementById('rename-input').value=p.name;ui.getElementById('storage-explanation').textContent='Your home, supplies, and memories are saved on this device.';ui.getElementById('home-description').textContent='Your cottage in Willowhaven. You return to its doorstep each session.';
   ui.getElementById('npc-name').textContent='Mara';ui.getElementById('npc-role').textContent='Village keeper';ui.getElementById('npc-stage').textContent='Mara pauses beside the well, listening.';ui.getElementById('conversation').innerHTML='<div class="bubble">Good to see you, Ada. There are old stones beyond the tree line. Take some provisions if you mean to find what lies beneath them.</div>';
   ui.getElementById('entrance-title').textContent='Willowhaven Barrow';ui.getElementById('entrance-description').textContent='Cool air rises from a stair beneath the broken arch. Will you descend?';ui.getElementById('entrance-stats').innerHTML='<div><b>Exploration</b><span>Never entered</span></div><div><b>Supplies</b><span>38 deposits remain</span></div>';
@@ -30,9 +41,10 @@
   ui.getElementById('health').value=84;ui.getElementById('food').value=62;ui.getElementById('water').value=72;drawMiniMap(ui.getElementById('minimap'),p);drawMap(ui.getElementById('atlas'),p,2600,p,{detailed:true,home:p.house});ui.getElementById('map-scale').textContent='2.6 km across';
   for(const button of document.querySelectorAll('[data-view]'))button.onclick=()=>show(button.dataset.view);
   for(const [button,dialog]of [['pack-button','pack-dialog'],['map-button','map-dialog'],['account-button','account-dialog'],['interact-button','talk-dialog']])ui.getElementById(button).onclick=()=>show(dialog);
-  ui.getElementById('stay-button').onclick=()=>show('hud');ui.getElementById('enter-button').onclick=()=>show('hud');ui.getElementById('chat-form').onsubmit=e=>e.preventDefault();
+  ui.getElementById('stay-button').onclick=()=>show('hud');ui.getElementById('enter-button').onclick=()=>show('hud');ui.getElementById('chat-form').onsubmit=e=>e.preventDefault();ui.getElementById('custom-reply').addEventListener('toggle',queueAudit);ui.addEventListener('close',queueAudit,true);
   const dungeon=generateDungeon(1,2),underground={...p,dungeon:{id:dungeon.id,...dungeon.spawn},caves:{[dungeon.id]:{rooms:[0]}}};document.getElementById('cave-view').onclick=()=>{drawMiniMap(ui.getElementById('minimap'),underground,{cave:dungeon});drawCaveMap(ui.getElementById('atlas'),dungeon,underground,{detailed:true});ui.getElementById('map-caption').textContent='Faint rooms are unexplored. Gold dots are supplies; teal marks the stairs.';ui.getElementById('map-scale').textContent='Dungeon layout';show('map-dialog');};
-  let phone=false;document.getElementById('device').onclick=()=>{phone=!phone;frame.style.width=phone?'390px':'100%';frame.style.maxWidth='100%';document.getElementById('device').textContent=phone?'Desktop width':'Phone width';};
+  document.getElementById('preview-size').onchange=e=>{const size=e.target.value.split(',');frame.style.width=size.length===2?size[0]+'px':'100%';frame.style.height=size.length===2?size[1]+'px':'calc(100dvh - 112px)';frame.style.minHeight='0';frame.style.maxWidth='100%';queueAudit();};
+  ui.addEventListener('scroll',queueAudit,true);window.addEventListener('resize',queueAudit);queueAudit();
  </script>
 </body>
 </html>

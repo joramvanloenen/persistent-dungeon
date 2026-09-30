@@ -114,7 +114,7 @@ kbd { font: 11px/1.3 'Segoe UI', Arial, sans-serif; border: 1px solid currentCol
 .cover h2 { font-size: 24px; margin: 0 0 8px; }
 .cover p { color: var(--muted); font-size: 13px; }
 .dialog { color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-top: 6px solid var(--teal); border-radius: 2px; padding: 26px; width: min(480px,calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; box-shadow: 0 4px 0 #26342c25; scrollbar-color: #a9ac98 var(--field); }
-.dialog::backdrop { background: #26362d80; }
+.dialog::backdrop { background: #203127bb; }
 .dialog .close { position: absolute; top: 10px; right: 10px; padding: 0; width: 32px; min-height: 32px; font-size: 24px; font-weight: 400; line-height: 1; border: 0; background: var(--field); box-shadow: none; color: var(--muted); }
 .dialog .close:hover { background: var(--coral); color: white; }
 .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--teal); margin: 0; padding-right: 34px; }
@@ -140,30 +140,45 @@ kbd { font: 11px/1.3 'Segoe UI', Arial, sans-serif; border: 1px solid currentCol
 .map-tools button { padding: 7px 12px; min-height: 36px; font-size: 13px; }
 .map-tools span { flex: 1; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
 .map-dialog canvas { width: 100%; max-height: 55dvh; object-fit: contain; display: block; background: #435548; border: 1px solid #8b9980; cursor: crosshair; }
-.rpg-dialog { width: min(620px,calc(100vw - 32px)); border-top-color: var(--plum); }
-.npc-head { display: flex; align-items: center; gap: 12px; padding: 0 0 16px; border-bottom: 1px solid var(--line); padding-right: 16px; }
+.rpg-dialog { width: min(620px,calc(100vw - 32px)); border-top-color: var(--plum); padding: 28px; }
+.npc-head { display: flex; align-items: center; gap: 12px; padding-right: 54px; }
 .npc-head > span:first-child { width: 48px; height: 48px; flex: 0 0 auto; display: grid; place-items: center; background: var(--plum); color: #fff; font-size: 28px; font-weight: 400; }
 .npc-head > div { flex: 1; min-width: 0; }
-.npc-head .eyebrow { color: var(--plum); padding: 0; }
-.npc-head h2 { margin: 3px 0 0; font-size: 22px; }
-.journal-button { flex: 0 0 auto; margin: 0 12px 0 auto; min-height: 36px; max-width: 115px; font-size: 11px; line-height: 1.3; padding: 7px 10px; }
-.npc-stage { color: var(--muted); font-size: 12px; font-style: italic; margin: 16px 0 0; }
+.npc-head h2 { margin: 0; font-size: 27px; line-height: 1.2; }
+.npc-role { color: var(--muted); font-size: 12px; line-height: 1.4; margin: 4px 0 0; }
+.npc-stage { color: var(--muted); font-size: 12px; font-style: italic; margin: 12px 0 18px; }
 .conversation { min-height: 130px; max-height: 38dvh; overflow-y: auto; padding: 16px 0; }
 .bubble { font-size: 14px; line-height: 1.65; margin-bottom: 12px; padding: 12px 14px; border-left: 3px solid var(--teal); background: var(--field); overflow-wrap: anywhere; }
 .bubble.you { margin-left: 24px; border-color: var(--plum); background: #e5dfeb; }
 .bubble small { color: var(--teal); display: block; margin-bottom: 5px; font-size: 11px; font-weight: 600; }
 .bubble.you small { color: var(--plum); }
-.rpg-dialog .conversation { min-height: 110px; max-height: 26dvh; margin: 14px 0; padding: 16px 18px; border-left: 3px solid var(--plum); background: var(--white); }
-.rpg-dialog .bubble { background: none; border: 0; padding: 0; margin: 0; font-size: 17px; line-height: 1.65; }
+.rpg-dialog .conversation { min-height: 0; max-height: min(32dvh,280px); margin: 0 0 26px; padding: 20px; border-left: 3px solid var(--plum); background: var(--white); }
+.rpg-dialog .bubble { background: none; border: 0; padding: 0; margin: 0; color: #30372c; font-size: 20px; line-height: 1.6; }
 .rpg-dialog .bubble small { display: none; }
-.dialogue-choices { display: grid; gap: 4px; margin-bottom: 16px; counter-reset: reply; }
-.dialogue-choices button { justify-content: flex-start; text-align: left; background: var(--field); box-shadow: none; border: 0; font-size: 13px; padding: 9px 12px; }
-.dialogue-choices button::before { counter-increment: reply; content: counter(reply); display: grid; place-items: center; min-width: 20px; height: 20px; color: var(--plum); border: 1px solid #a68da7; font-size: 11px; margin-right: 2px; }
+.reply-options h3 { margin: 0 0 12px; color: var(--muted); font-size: 12px; font-weight: 600; }
+.dialogue-choices { display: grid; gap: 10px; margin: 0; counter-reset: reply; }
+.dialogue-choices button { justify-content: flex-start; text-align: left; min-height: 48px; background: var(--field); box-shadow: none; border: 1px solid var(--line); font-size: 14px; padding: 11px 14px; }
+.dialogue-choices button::before { counter-increment: reply; content: counter(reply); min-width: 18px; color: var(--plum); font-size: 12px; margin-right: 4px; }
 .dialogue-choices button:hover { background: #d8d4df; }
-.talk-dialog #chat-form { display: flex; gap: 8px; }
-.talk-dialog textarea { resize: vertical; min-height: 70px; font-size: 14px; }
-.talk-dialog .primary { align-self: stretch; padding: 10px 17px; }
-.memory-note { display: block; margin-top: 12px; font-size: 11px; }
+.custom-reply { margin-top: 10px; }
+.custom-reply summary { display: flex; align-items: center; gap: 10px; min-height: 44px; padding: 8px 4px; color: var(--plum); font-size: 13px; cursor: pointer; list-style: none; }
+.custom-reply summary::-webkit-details-marker { display: none; }
+.custom-reply summary::before { content: '+'; display: grid; place-items: center; width: 22px; height: 22px; font-size: 20px; }
+.custom-reply[open] summary::before { content: '−'; }
+.custom-reply summary:focus-visible { outline: 2px solid var(--teal); outline-offset: 2px; }
+.custom-reply[open] { padding: 0 12px 12px; border: 1px solid var(--line); background: #e8e6d6; }
+.talk-dialog #chat-form { display: grid; gap: 10px; }
+.talk-dialog #chat-form label { margin: 4px 0 0; font-size: 12px; }
+.talk-dialog textarea { resize: vertical; min-height: 82px; font-size: 16px; }
+.talk-dialog .primary { width: 100%; min-height: 46px; padding: 10px 17px; }
+.memory-note { display: block; margin-top: 10px; font-size: 11px; }
+.dialogue-footer { display: flex; justify-content: space-between; align-items: center; gap: 12px; margin-top: 20px; padding-top: 12px; border-top: 1px solid var(--line); }
+.dialogue-footer form { margin: 0; flex: 0 0 auto; }
+.journal-button { min-height: 44px; margin: 0; padding: 8px 4px; border: 0; background: transparent; box-shadow: none; color: var(--plum); font-size: 12px; text-decoration: underline; text-underline-offset: 3px; text-align: left; }
+.journal-button:hover { background: #ded9e2; }
+.leave-button { min-height: 44px; padding: 8px 20px; }
+/* A modal is the only active interface; the field HUD must not compete. */
+#game:has(dialog[open]) > :is(.top-hud,.vitals,.compass,.mini-wrap,.bottom-hud,#world-labels,#dungeon-status,#connection-notice) { visibility: hidden; }
 .history-dialog { width: min(620px,calc(100vw - 32px)); border-top-color: var(--plum); }
 .history-dialog .conversation { max-height: 62dvh; }
 .journal-entry { font-size: 12px; padding: 10px 0; border-bottom: 1px solid var(--line); }
@@ -199,69 +214,92 @@ kbd { font: 11px/1.3 'Segoe UI', Arial, sans-serif; border: 1px solid currentCol
   .quick-items button { padding: 8px; }
 }
 @media (max-width: 760px) {
-  .top-hud { top: max(12px,env(safe-area-inset-top)); left: 12px; right: 12px; gap: 6px; }
-  .brand { padding: 5px 8px 5px 5px; gap: 7px; }
-  .brand-mark { width: 32px; height: 32px; font-size: 23px; }
+  :root { --safe-top: max(12px,env(safe-area-inset-top)); }
+  .top-hud { top: var(--safe-top); left: 12px; right: 12px; gap: 12px; align-items: center; }
+  .brand { min-width: 0; padding: 5px 9px 5px 5px; gap: 8px; }
+  .brand-mark { width: 32px; height: 32px; font-size: 23px; flex: 0 0 auto; }
+  .brand > div { min-width: 0; }
   .brand h1 { font-size: 12px; }
-  .brand div > span { font-size: 10px; max-width: 116px; }
-  .top-actions { gap: 4px; }
-  .top-actions button { min-height: 40px; padding: 8px; font-size: 12px; gap: 5px; }
-  .top-actions .ui-icon { width: 17px; height: 17px; }
-  .top-actions kbd { display: none; }
-  #account-button { width: 36px; }
-  .save-status { top: 48px; font-size: 9px; line-height: 19px; padding: 1px 6px; }
-  .vitals { left: 12px; top: 76px; gap: 10px; padding: 8px 10px; }
-  .vitals > div { grid-template-columns: 14px 47px; gap: 3px 5px; }
-  .vitals .ui-icon { width: 14px; height: 14px; }
-  .vitals meter { width: 47px; height: 5px; }
-  .vitals small { font-size: 10px; }
-  .compass { top: 85px; right: 22px; font-size: 11px; }
-  .mini-wrap { right: 12px; bottom: 153px; width: 107px; padding: 4px; }
+  .brand div > span { font-size: 10px; max-width: 112px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .top-actions { gap: 8px; flex: 0 0 auto; }
+  .top-actions button, #account-button { width: 44px; height: 44px; min-height: 44px; padding: 10px; }
+  .top-actions .ui-icon { display: block; width: 21px; height: 21px; }
+  .top-actions .button-label, .top-actions kbd { display: none; }
+  .save-status { top: 54px; font-size: 10px; line-height: 20px; padding: 1px 7px; }
+  .vitals { left: 12px; right: 12px; top: calc(var(--safe-top) + 88px); display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 14px; padding: 10px 12px; }
+  .vitals > div { min-width: 0; grid-template-columns: 16px minmax(0,1fr); gap: 4px 6px; }
+  .vitals .ui-icon { width: 16px; height: 16px; }
+  .vitals meter { width: 100%; height: 6px; }
+  .vitals small { font-size: 11px; }
+  .compass { top: calc(var(--safe-top) + 145px); right: 22px; font-size: 11px; }
+  .mini-wrap { right: 12px; bottom: calc(var(--dock-clearance,194px) + 16px); width: 100px; padding: 4px; }
   .mini-wrap > div { padding: 5px 2px 2px; gap: 2px; }
   .mini-wrap span { font-size: 10px; }
   .mini-wrap small { font-size: 9px; }
-  .bottom-hud { left: 12px; right: 12px; bottom: max(12px,env(safe-area-inset-bottom)); display: grid; grid-template-columns: minmax(0,1fr) auto; gap: 6px; align-items: stretch; }
-  .travel-tip { grid-column: 1 / -1; padding: 8px 10px; }
-  .travel-tip span { font-size: 12px; }
-  .travel-tip small { font-size: 10px; max-width: none; }
+  .bottom-hud { left: 12px; right: 12px; bottom: max(12px,env(safe-area-inset-bottom)); display: grid; grid-template-columns: minmax(0,1fr); gap: 10px; align-items: stretch; }
+  .travel-tip { padding: 8px 10px; }
+  .travel-tip span { font-size: 13px; }
+  .travel-tip small { display: none; }
   .interaction { display: flex; }
-  .interaction > button { width: 100%; min-width: 0; min-height: 48px; padding: 8px; font-size: 12px; gap: 4px; }
-  .quick-items { padding: 4px; gap: 4px; }
-  .quick-items button { min-height: 40px; font-size: 11px; padding: 6px 7px; gap: 4px; }
-  #eat-button > span { display: none; }
-  #toast { bottom: 148px; font-size: 12px; padding: 10px 13px; }
-  #connection-notice { left: 14px; bottom: 138px; font-size: 9px; max-width: calc(100vw - 135px); }
-  #dungeon-status { top: 132px; left: 12px; max-width: calc(100vw - 88px); padding: 8px 10px; }
+  .interaction > button { width: 100%; min-width: 0; min-height: 48px; padding: 10px 14px; font-size: 14px; gap: 8px; }
+  .interaction kbd { display: none; }
+  .quick-items { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); padding: 8px; gap: 10px; }
+  .quick-items button { min-width: 0; min-height: 44px; font-size: 12px; padding: 8px 4px; gap: 5px; }
+  #eat-button > span { display: inline; }
+  #eat-button .ui-icon { display: none; }
+  #toast { bottom: calc(var(--dock-clearance,194px) + 16px); font-size: 12px; padding: 10px 13px; }
+  #connection-notice { left: 14px; bottom: calc(var(--dock-clearance,194px) + 16px); font-size: 9px; max-width: calc(100vw - 138px); }
+  #dungeon-status { top: calc(var(--safe-top) + 146px); left: 12px; max-width: calc(100vw - 70px); padding: 8px 10px; }
   #dungeon-status span { font-size: 12px; }
   #dungeon-status small { font-size: 10px; }
-  .dialog { padding: 23px 18px; width: calc(100vw - 24px); max-height: calc(100dvh - 24px); }
+  .dialog { position: fixed; inset: auto 12px; top: calc(var(--viewport-top,0px) + var(--safe-top)); margin: 0 auto; padding: 20px 18px; width: auto; max-height: calc(var(--viewport-height,100dvh) - var(--safe-top) - 12px); overscroll-behavior: contain; }
+  .dialog .close { width: 44px; height: 44px; min-height: 44px; top: 8px; right: 8px; }
+  .dialog > h2 { padding-right: 42px; }
+  .dialog .eyebrow { padding-right: 44px; }
   .dialog h2 { font-size: 23px; }
-  .dialog p { font-size: 14px; }
+  .dialog p:not(.npc-role):not(.npc-stage) { font-size: 14px; }
   .welcome-grid > div { padding: 10px; }
   .welcome-grid span { font-size: 11px; }
-  .npc-head { gap: 9px; padding-right: 10px; align-items: flex-start; }
-  .npc-head > span:first-child { width: 38px; height: 38px; font-size: 23px; }
-  .npc-head h2 { font-size: 20px; }
-  .npc-head .eyebrow { font-size: 10px; }
-  .journal-button { margin-right: 14px; font-size: 10px; max-width: 88px; padding: 6px; }
-  .rpg-dialog .conversation { min-height: 90px; max-height: 25dvh; padding: 13px; }
-  .rpg-dialog .bubble { font-size: 16px; }
-  .dialogue-choices button { font-size: 12px; padding: 8px 10px; }
-  .talk-dialog #chat-form { gap: 6px; }
-  .talk-dialog .primary { padding: 8px 12px; }
+  .npc-head { gap: 10px; padding-right: 42px; align-items: center; }
+  .npc-head > span:first-child { width: 40px; height: 40px; font-size: 24px; }
+  .npc-head h2 { font-size: 24px; }
+  .npc-role { font-size: 11px; line-height: 1.4; }
+  .npc-stage { font-size: 11px; margin: 10px 0 16px; }
+  .rpg-dialog .conversation { max-height: min(30dvh,240px); margin-bottom: 20px; padding: 16px; }
+  .rpg-dialog .bubble { font-size: 18px; }
+  .reply-options h3 { margin-bottom: 10px; font-size: 12px; }
+  .dialogue-choices { gap: 10px; }
+  .dialogue-choices button { min-height: 48px; font-size: 14px; padding: 10px 12px; }
+  .custom-reply { margin-top: 8px; }
+  .custom-reply summary { font-size: 13px; }
+  .dialogue-footer { margin-top: 16px; padding-top: 10px; gap: 12px; }
+  .journal-button { min-height: 44px; max-width: none; font-size: 12px; padding: 8px 2px; }
+  .talk-dialog #chat-form { gap: 10px; }
+  .talk-dialog .primary { min-height: 48px; padding: 10px 14px; }
+  .inline-form, .map-tools { gap: 10px; }
+  .dialog button, .dialog .button, .map-tools button { min-height: 44px; }
   .entrance-stats > div { padding: 12px; }
-  .map-tools { gap: 4px; }
   .map-tools button { font-size: 12px; padding: 7px 9px; }
   .map-tools span { font-size: 11px; }
 }
 @media (max-width: 370px) {
-  .brand div > span { max-width: 94px; }
-  .top-actions button > .ui-icon { display: none; }
-  #account-button > .ui-icon { display: block; }
-  .vitals { gap: 7px; padding: 8px; }
-  .vitals > div { grid-template-columns: 13px 42px; gap: 3px 4px; }
-  .vitals meter { width: 42px; }
-  .journal-button { max-width: 65px; }
+  .brand div > span { max-width: 80px; }
+  .brand { padding-right: 6px; gap: 6px; }
+  .brand h1 { font-size: 11px; }
+  .vitals { gap: 10px; padding: 10px; }
+  .quick-items button { font-size: 11px; gap: 4px; }
+  .rpg-dialog .conversation { padding: 14px; }
+  .dialogue-footer .leave-button { padding-inline: 14px; }
+}
+@media (max-width: 760px) and (max-height: 580px) {
+  .npc-stage { display: none; }
+  .rpg-dialog .conversation { margin-top: 16px; }
+  .bottom-hud { grid-template-columns: minmax(0,1fr) auto; }
+  .travel-tip { grid-column: 1 / -1; }
+  .quick-items { padding: 4px; gap: 8px; }
+  .quick-items button { min-width: 44px; padding: 6px; }
+  #eat-button > span { display: none; }
+  #eat-button .ui-icon { display: block; }
 }
 @media (max-height: 520px) and (min-width: 761px) {
   .mini-wrap { width: 108px; bottom: 99px; }
