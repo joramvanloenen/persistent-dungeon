@@ -1,5 +1,5 @@
 import CONFIG from '../config.js';
-import {createPlayer,validateAction} from './rules.js?v=6';
+import {createPlayer,validateAction} from './rules.js?v=7';
 import {normalizePlayer} from './homes.js?v=6';
 const LOCAL_KEY='evermere-local-v1';
 export class Store {
@@ -49,7 +49,7 @@ export class Store {
   if(path==='action'){
    // Local preview follows the same server rules, including atomic resource claims.
    if(!Number.isInteger(body.revision)||body.revision!==l.player.revision)throw Error('Your traveler changed in another session. Reload and try again.');
-   const a=body.action,result=validateAction(l.player,a,{depleted:!!l.nodes[a.target],memories:l.memories.filter(m=>m.npc===a.target).slice().reverse()});
+   const a=body.action,result=validateAction(l.player,a,{depleted:!!l.nodes[a.target],depletedIds:Object.keys(l.nodes),homes:[l.player.house],memories:l.memories.filter(m=>m.npc===a.target).slice().reverse()});
    const previous=structuredClone(l);l.player=result.player;
    if(a.type==='gather')l.nodes[a.target]=Date.now();
    if(a.type==='talk')l.memories.push({id:crypto.randomUUID(),npc:a.target,playerId:l.player.id,playerName:l.player.name,message:result.extra.message,response:result.extra.response,createdAt:Date.now()});

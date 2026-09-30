@@ -1,16 +1,17 @@
-import {Store} from './storage.js?v=6';
-import {WorldRenderer} from './render.js?v=6';
+import {Store} from './storage.js?v=7';
+import {WorldRenderer} from './render.js?v=7';
 import {drawMap,drawCaveMap,drawMiniMap} from './map.js?v=6';
 import {BIOMES,CHUNK,LIMIT,biomeAt,nearestSettlement,waterDistance} from './world.js?v=6';
 import {caveStatus,roomAt,resolveDungeon} from './dungeons.js?v=2';
-import {npcGreeting} from './rules.js?v=6';
+import {npcGreeting} from './rules.js?v=7';
 import {equippedWeapon} from './action-game.js?v=6';
 import {installForgeUI} from './forge-ui.js?v=6';
 import {installUILayout} from './ui-layout.js?v=4';
+import {appendMovementTrail} from './world-collision.js?v=7';
 const $=id=>document.getElementById(id);
 const detachUILayout=installUILayout(),touchControls=window.matchMedia('(pointer: coarse)');window.addEventListener('pagehide',detachUILayout,{once:true});
 let store=new Store(),world,player,nearby=null,busy=false,dirty=false,activeNpc=null,waypoint=null,miniLast={x:Infinity,z:Infinity,yaw:null,time:0},events=[],mapSpan=2600,mapCenter=null,saveTimer,syncTimer,loaded=false,trail=[],historyOffset=0,entrance=null,suppressed=new Set();
-let forgeUI,runDistance=0;
+let forgeUI,runDistance=0,trailFrozen=0;
 function toast(message){$('toast').textContent=message;$('toast').classList.add('show');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').classList.remove('show'),4300);}
 function status(message){$('save-status').textContent=message;}
 function openDialog(id){$(id).showModal();if(world)world.keys={};}
@@ -20,11 +21,11 @@ function chunks(){const out=[];const cx=Math.floor(player.x/CHUNK),cz=Math.floor
 function applySnapshot(result,position=false){world.setDepleted(result.depleted||[]);world.setOthers(result.players||[]);if(result.homes)world.setHomes(result.homes);events=result.events||events;if(position){player=result.player;world.setPlayer(player);updateUI();}}
 async function sync(){if(!loaded||busy||dirty)return;try{const r=await store.request('state',{chunks:chunks()});applySnapshot(r);if(r.player.revision>player.revision){player=r.player;world.setPlayer(player);trail=[];updateUI();toast('Your traveler was updated from another session.');}}catch{status('Connection interrupted');}}
 async function flush(){
- if(!world||!dirty||busy)return;busy=true;status('Saving footsteps');const pos={x:world.player.x,z:world.player.z},sentTrail=trail.slice(0,80),used=sentTrail.length;
+ if(!world||!dirty||busy)return;busy=true;status('Saving footsteps');const sentTrail=trail.slice(0,80),used=sentTrail.length,pos=trail.length>80?{...sentTrail.at(-1)}:{x:world.player.x,z:world.player.z};trailFrozen=used;
  const points=[player.dungeon||player,...sentTrail,pos],pathDistance=points.slice(1).reduce((n,q,i)=>n+Math.hypot(q.x-points[i].x,q.z-points[i].z),0),sentRun=Math.min(runDistance,pathDistance);
  try{const r=await store.action({type:'move',...pos,space:player.dungeon?.id||'overworld',trail:sentTrail,runDistance:sentRun},player);player=r.player;runDistance=Math.max(0,runDistance-sentRun);trail.splice(0,used);dirty=Math.hypot(world.player.x-pos.x,world.player.z-pos.z)>.05;world.exploration=player.caves;updateUI();saved();}
- catch(e){status('Save failed');toast(e.message);if(/too far|Deep water|wall|another session|revision|conflict|location changed/i.test(e.message))await restorePosition();}
- finally{busy=false;}
+ catch(e){status('Save failed');toast(e.message);if(/too far|Deep water|wall|solid obstacle|another session|revision|conflict|location changed/i.test(e.message))await restorePosition();}
+ finally{busy=false;trailFrozen=0;}
 }
 async function restorePosition(){try{const r=await store.request('state',{chunks:chunks()});player=r.player;world.setPlayer(player);applySnapshot(r);dirty=false;trail=[];runDistance=0;}catch{}}
 async function waitForSave(){await flush();if(busy)throw Error('Your footsteps are still saving. Try again in a moment.');if(dirty){await flush();if(dirty)throw Error('Save your position before interacting.');}}
@@ -36,11 +37,11 @@ async function act(action){
   events.unshift({id:crypto.randomUUID(),type:action.type,summary:r.summary,createdAt:Date.now()});if(!['talk','jump','forge-strike'].includes(action.type))toast(r.summary);return r;
  }catch(e){toast(e.message);status('Action not saved');throw e;}finally{busy=false;}
 }
-function frame({x,z,moved,running,stamina}){
+function frame({x,z,moved,path,running,stamina}){
  if(!loaded)return;
  $('stamina').value=stamina;$('jump-button').disabled=busy||stamina<20||world.motion.height>0||Date.now()-(player.lastJump||0)<900;$('attack-button').disabled=busy||!equippedWeapon(player);
  if(running&&moved)runDistance+=moved;
- if(moved){dirty=true;const last=trail.at(-1)||player.dungeon||player;if(Math.hypot(x-last.x,z-last.z)>=.7)trail.push({x,z});}
+ if(moved){dirty=true;appendMovementTrail(trail,player.dungeon||player,path?.length?path:[{x,z}],trailFrozen);}
  const cameraYaw=world.cameraOrbit.yaw,now=Date.now(),turned=miniLast.yaw===null||Math.abs(Math.atan2(Math.sin(cameraYaw-miniLast.yaw),Math.cos(cameraYaw-miniLast.yaw)))>.0005;
  if(moved||turned||now-miniLast.time>350){drawMiniMap($('minimap'),{...player,x,z,dungeon:player.dungeon?{...player.dungeon,x,z}:null},{cave:world.cave,depleted:world.depleted,waypoint,heading:world.hero.rotation.y,cameraYaw});miniLast={x,z,yaw:cameraYaw,time:now};}
  if(Date.now()-(frame.uiTime||0)<220)return;frame.uiTime=Date.now();nearby=world.closest();
@@ -56,7 +57,7 @@ function frame({x,z,moved,running,stamina}){
  $('dungeon-status').hidden=!cave;if(cave){const room=roomAt(cave,x,z),progress=caveStatus(cave.id,player,world.depleted);$('dungeon-room').textContent=room===null?'The connecting passages':cave.rooms[room].name;$('dungeon-progress').textContent=`${progress.rooms}/${progress.totalRooms} chambers explored · ${progress.total-progress.collected} supplies remain`;}
  if(!cave){for(const id of [...suppressed]){const r=resolveDungeon(id);if(r&&Math.hypot(r.x-x,r.z-z)>22)suppressed.delete(id);}if(nearby?.type==='entrance'&&!suppressed.has(nearby.id)&&!busy&&!document.querySelector('dialog[open]'))showEntrance(nearby);}
 }
-function walk(pos){if(!loaded||document.querySelector('dialog[open]'))return;if(!world.passable(pos.x,pos.z)){toast(world.cave?'A stone wall blocks the way.':'Deep water. Follow a road to find a bridge.');return;}if(!world.setWalkTarget(pos))toast('There is no passage to that spot.');}
+function walk(pos){if(!loaded||document.querySelector('dialog[open]'))return;const spot=world.walkSpot(pos);if(!spot||!world.setWalkTarget(spot))toast('There is no clear route to that spot. Try a nearby path.');}
 function showEntrance(target){entrance=target;const leaving=target.type==='exit';if(!leaving)suppressed.add(target.id);$('entrance-eyebrow').textContent=leaving?'Back toward daylight':'Beneath the old stones';$('entrance-title').textContent=leaving?'Return to the surface?':target.name;
  $('entrance-description').textContent=leaving?'The stone stair rises toward the ruined arch above. Your discoveries and gathered supplies will stay with you.':`Cool air rises from a stair beneath the broken arch. Beyond it lies ${target.dungeonName.toLowerCase()}. Will you descend?`;
  const id=leaving?player.dungeon.id:target.id,progress=caveStatus(id,player,world.depleted);$('entrance-stats').replaceChildren();

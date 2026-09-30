@@ -20,7 +20,7 @@ The default Pages build is a **local preview** until a backend is configured. It
 
 The complete Supabase backend and alternative Node/SQLite server are included. Follow [backend setup](backend/README.md) to enable account saves across devices, shared resource depletion, other travelers, and shared NPC memories. All live player data remain in that database, not this repository.
 
-NPC replies currently use a transparent, deterministic memory and keyword system. Every successful message is stored verbatim; replies can recall it. This version does not call an LLM. Building and combat are not implemented yet.
+NPC replies currently use a transparent, deterministic memory and keyword system. Every successful message is stored verbatim; replies can recall it. This version does not call an LLM. Building is not implemented yet; equipped weapons, attacks, and dungeon sentinels are available.
 
 ## Run and test
 
@@ -89,3 +89,11 @@ Each job consumes the displayed coin fee, ore, and wood. Heat the billet for 6â€
 The action rules run in local, Node/SQLite, and Supabase modes. Configured servers need the updated source; Supabase also needs the updated `apply_game_action` function from `backend/schema.sql` for its gameplay rate limit. No new tables are needed. The public Pages version retains its existing local-preview save mode until a shared backend is configured.
 
 `dev/forge-preview.html` is a disposable UI playtest using the real crafting rules, with a heating-time advance button. It never writes a traveler save. Automated checks cover save migration, forging windows and penalties, duplicate completion, combat reach/cooldowns, jump physics, rendered equipment, and local/server reload persistence.
+
+## Collision and painted foliage update
+
+- Village houses and player cottages use rotated building footprints, including cottage fences and crates. Wells, smith furnaces/anvils, ruin masonry, rocks, and tree trunks block movement. Bushes and grasses remain soft. Gathered trees and rocks stop blocking the path.
+- Substepped swept movement prevents running through thin obstacles and slides along edges. Click/tap movement finds a route around props; clicking a solid object approaches nearby open ground. Movement trails retain collision-safe turns when saved.
+- Dungeon pillars, braziers, altars, rubble, and supply containers also block walking. Stairs and interactions remain reachable.
+- Collectible and decorative trees use `assets/foliage/tree-broad.png` and `tree-tall.png`, copied unchanged from the supplied images. Grass, berry bushes, flowers, and cottage gardens also use billboards. All sprites rotate around world Y with their roots anchored to the terrain; camera pitch never tilts them. Instanced shader rotation avoids per-tree updates on phones.
+- Shared movement validation enforces surface collisions using the same placements and nearby persisted homes/resource depletion. Existing seed, resource IDs, homes, inventory, forge jobs, and NPC memories stay intact.

@@ -43,7 +43,8 @@ Deno.serve(async(request:Request)=>{
     const needle=words.filter((w:string)=>!['remember','about','what','told','know','that','your','have'].includes(w.toLowerCase())).slice(0,4).map((w:string)=>w.replace(/[^\p{L}\p{N}]/gu,''));
     if(needle.length){const q=needle.map((w:string)=>'message.ilike.'+enc('*'+w+'*')).join(',');const found=await db('game_memories?npc=eq.'+enc(String(a.target))+'&or=('+q+')&order=created_at.desc&limit=100');memories=[...found.map(memory),...memories];}
    }
-   const result=validateAction(p,a,{depleted,memories});
+   const movement:{homes?:any[],depletedIds?:string[]}={};if(a.type==='move'&&!p.dungeon){const cx=Math.floor(p.x/CHUNK),cz=Math.floor(p.z/CHUNK),rx=Math.floor(p.x/REGION),rz=Math.floor(p.z/REGION),villages:string[]=[];for(let x=rx-1;x<=rx+1;x++)for(let z=rz-1;z<=rz+1;z++)villages.push(`v:${x}:${z}`);const [homeRows,nodeRows]=await Promise.all([db('game_homes?village=in.('+villages.map(enc).join(',')+')&select=state&limit=200'),db(`game_nodes?space=eq.overworld&cx=gte.${cx-3}&cx=lte.${cx+3}&cz=gte.${cz-3}&cz=lte.${cz+3}&select=id`)]);movement.homes=homeRows.map((h:any)=>h.state).filter(Boolean);if(!movement.homes!.some((h:any)=>h.owner===p.id))movement.homes!.push(p.house);movement.depletedIds=nodeRows.map((n:any)=>n.id);}
+   const result=validateAction(p,a,{depleted,memories,...movement});
    await db('rpc/apply_game_action',{method:'POST',body:JSON.stringify({actor_id:user.id,expected_revision:body.revision,next_state:result.player,action_type:a.type,action_summary:result.summary,extra:result.extra})});
    return reply(result);
   }

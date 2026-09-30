@@ -43,3 +43,7 @@ Deploy the updated shared source to enable smith payments, material trading, tim
 Each accepted forge step and combat action is stored atomically with its event. Paid forge jobs store their phase, start time, deadline, pattern step, and mistakes. Crafted weapons and equipment survive reloads; the action validator rejects unpaid, distant, mistimed, stale, or duplicate attempts. Sentinel health and rewards are stored per traveler.
 
 Back up the database. Static source in GitHub is not a backup of live world data.
+
+## Collision update
+
+Deploy the updated shared source and restart Node, or redeploy the Supabase `world` function. Movement validation now checks surface obstacle footprints and the entire saved trail, using nearby database homes and depleted resources. No schema migration is needed for this update.

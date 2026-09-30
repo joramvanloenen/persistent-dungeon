@@ -1,10 +1,13 @@
 import * as T from '../vendor/three.module.js';
 import {resolveDungeon,ruinFor,caveWalkable,caveStatus,roomAt,cavePathClear} from './dungeons.js?v=2';
-import {buildDungeon,findCavePath} from './dungeon-render.js?v=3';
+import {buildDungeon} from './dungeon-render.js?v=3';
 import {CAMERA_LIMITS,wrapAngle,clampPitch,advanceOrbit,orbitPosition} from './camera-controls.js?v=3';
 import {CHUNK,REGION,WATER,BIOMES,hash,heightAt,waterDistance,biomeAt,roadSegments,roadDistance,settlement,npcsFor,resourcesFor,nearestSettlement,smithFor} from './world.js?v=6';
 import {equippedWeapon,guardiansFor,dummyFor} from './action-game.js?v=6';
 import {advanceMotion,beginJump} from './action-motion.js?v=6';
+import {villageHouses,homeObstacles,villageObstacles,ruinObstacles,ruinRubble,resourceObstacle,caveObstacles,foliageFor,outsideHome,circle} from './scene-layout.js?v=7';
+import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=7';
+import {loadFoliageMaterials,createBillboardBatch,createBillboardMaterial} from './foliage-billboards.js?v=7';
 const materials={};const mat=(name,color)=>materials[name]||(materials[name]=new T.MeshStandardMaterial({color,roughness:1,flatShading:true}));
 const geos={box:new T.BoxGeometry(1,1,1),trunk:new T.CylinderGeometry(.25,.45,1,5),pine:new T.ConeGeometry(1,1,6),rock:new T.IcosahedronGeometry(1,0),sphere:new T.IcosahedronGeometry(1,1),grass:new T.ConeGeometry(1,1,3)};
 function mesh(geo,material,x,y,z,sx=1,sy=1,sz=1){const m=new T.Mesh(geo,material);m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=true;m.receiveShadow=true;return m;}
@@ -29,6 +32,7 @@ export class WorldRenderer {
  constructor(container,{onWalk,onFrame}){
   this.container=container;this.onWalk=onWalk;this.onFrame=onFrame;this.chunks=new Map();this.nodes=new Map();this.npcs=new Map();this.villages=new Map();this.depleted=new Set();this.others=new Map();this.frame=0;this.keys={};this.player=null;this.target=null;this.yaw=.15;this.zoom=1;this.touchPoints=new Map();this.terrain=[];this.quality='balanced';this.ruins=new Map();this.homes=new Map();this.cave=null;this.caveModel=null;this.path=[];this.exploration={};
   this.pitch=CAMERA_LIMITS.defaultPitch;this.cameraOrbit={yaw:this.yaw,pitch:this.pitch};this.cameraFocus=new T.Vector3();this.projectedLabel=new T.Vector3();
+  this.collision=new CollisionIndex();this.foliage=loadFoliageMaterials();
   this.motion={stamina:100,height:0,velocity:0,swing:0};this.runToggled=false;this.opponents=new Map();
   this.scene=new T.Scene();this.scene.background=new T.Color(0x9aada0);this.scene.fog=new T.Fog(0x9aada0,440,950);
   this.camera=new T.PerspectiveCamera(40,1,.3,1500);
@@ -65,7 +69,7 @@ export class WorldRenderer {
   this.cave=id?resolveDungeon(id):null;const outside=!this.cave;
   for(const c of this.chunks.values())c.group.visible=outside;for(const v of this.villages.values())v.group.visible=outside;for(const r of this.ruins.values())r.group.visible=outside;for(const h of this.homes.values())h.group.visible=outside;for(const o of this.others.values())o.visible=outside;
   this.hemi.intensity=outside?2.3:1.8;this.sun.intensity=outside?3.1:1.6;this.sun.castShadow=outside;this.lantern.visible=!outside;this.scene.background.setHex(outside?0x9aada0:0x25332c);this.scene.fog.color.setHex(outside?0x9aada0:0x25332c);
-  if(this.cave){this.caveModel=buildDungeon(this.cave);this.scene.add(this.caveModel.group);this.terrain=[this.caveModel.rayFloor];for(const [nodeId,n]of this.caveModel.nodes)this.showNode(n,!this.depleted.has(nodeId));}else this.terrain=[...this.chunks.values()].map(c=>c.terrain);
+  if(this.cave){this.caveCollision=new CollisionIndex();this.caveCollision.replace('cave',caveObstacles(this.cave,this.depleted));this.caveModel=buildDungeon(this.cave);this.scene.add(this.caveModel.group);this.terrain=[this.caveModel.rayFloor];for(const [nodeId,n]of this.caveModel.nodes)this.showNode(n,!this.depleted.has(nodeId));}else this.terrain=[...this.chunks.values()].map(c=>c.terrain);
   this.labelContainer.replaceChildren();for(const item of [...this.npcs.values(),...this.villages.values(),...this.ruins.values(),...this.homes.values()])this.labelContainer.append(item.label);
  }
  syncActionState(p){
@@ -79,33 +83,44 @@ export class WorldRenderer {
  attackSwing(){if(!this.heldWeapon||this.motion.swing>0)return false;this.hero.rotation.y=wrapAngle(this.cameraOrbit.yaw+Math.PI);this.motion.swing=.65;return true;}
  attackTarget(weapon){let best=null,distance=weapon.reach;for(const foe of this.opponents.values()){if(!foe.object.visible)continue;const dx=foe.x-this.player.x,dz=foe.z-this.player.z,d=Math.hypot(dx,dz),dot=d?(dx*Math.sin(this.hero.rotation.y)+dz*Math.cos(this.hero.rotation.y))/d:1;if(d<=distance&&dot>.25&&(!this.cave||cavePathClear(this.cave,this.player,foe))){best=foe;distance=d;}}return best;}
  setHomes(homes){
-  if(!homes)return;this.homeList=homes;const wanted=new Set(homes.filter(Boolean).map(h=>h.id));
-  for(const [id,h]of this.homes)if(!wanted.has(id)){this.scene.remove(h.group);h.label.remove();this.homes.delete(id);}
-  for(const h of homes.filter(Boolean)){if(!this.homes.has(h.id))this.addHome(h);const item=this.homes.get(h.id);item.ownerName=h.ownerName;item.label.textContent=h.owner===this.player?.id?'Your home':`${h.ownerName}'s home`;item.group.visible=!this.cave;}
+  if(!homes)return;this.collision??=new CollisionIndex();const stamp=homes.filter(Boolean).map(h=>`${h.id}:${h.x}:${h.z}:${h.rotation}`).sort().join("|");const changed=stamp!==this.homeStamp;this.homeStamp=stamp;this.homeList=homes;const wanted=new Set(homes.filter(Boolean).map(h=>h.id));
+  for(const [id,h]of this.homes)if(!wanted.has(id)){this.scene.remove(h.group);h.label.remove();this.homes.delete(id);this.collision.remove(id);}
+  for(const h of homes.filter(Boolean)){if(!this.homes.has(h.id))this.addHome(h);const item=this.homes.get(h.id);item.ownerName=h.ownerName;item.label.textContent=h.owner===this.player?.id?'Your home':`${h.ownerName}'s home`;item.group.visible=!this.cave;if(changed)this.collision.replace(h.id,homeObstacles(h));}if(changed)for(const chunk of this.chunks.values())this.refreshChunkCollision(chunk);
  }
- setWalkTarget(pos){if(this.cave){const path=findCavePath(this.cave,this.player,pos);if(!path)return false;this.path=path;this.target=this.path.shift();}else{this.path=[];this.target=pos;}return true;}
+ setWalkTarget(pos){const path=findSurfacePath(this.player,pos,(a,b)=>this.pathClear(a,b),this.cave?{step:1.4,margin:12,limit:22000}:{});if(!path)return false;this.path=path;this.target=this.path.shift();return true;}
+ getFoliage(){return this.foliage??={trees:[createBillboardMaterial(new T.Texture()),createBillboardMaterial(new T.Texture())],grass:createBillboardMaterial(new T.Texture()),berries:createBillboardMaterial(new T.Texture()),flowers:createBillboardMaterial(new T.Texture())};}
  addHome(h){
   const g=new T.Group();g.position.set(h.x,h.y,h.z);g.rotation.y=h.rotation;const own=h.owner===this.player?.id;
   g.add(mesh(geos.box,mat('homeFoundation',0x86876d),0,.25,0,11,.5,11),mesh(geos.box,mat('homeWall',0xc4bb95),0,2.6,0,9,4.7,8),mesh(roof,mat(own?'myRoof':'otherRoof',own?0x915244:0x627866),0,5,0,5.6,3.1,5));
   g.add(mesh(geos.box,mat('door',0x534b36),0,1.5,4.05,1.8,2.5,.18),mesh(geos.box,mat('window',0x4a655a),-2.8,3,4.08,1.2,1.2,.15),mesh(geos.box,mat('window',0x4a655a),2.8,3,4.08,1.2,1.2,.15),mesh(geos.box,mat('chimney',0x77735e),2.7,6.6,-1.5,1.1,3.5,1.1));
   for(const x of [-4.7,4.7]){g.add(mesh(geos.box,mat('fence',0x887555),x,.6,6.2,.2,1.2,6));for(let i=0;i<4;i++)g.add(mesh(geos.box,mat('fence',0x887555),x,.75,4+i*1.5,.25,1.5,.25));}
   g.add(mesh(geos.box,mat('path',0xae9a69),0,.15,6,3.2,.15,4),mesh(geos.box,mat('crate',0x81674a),-5.8,.8,0,1.4,1.6,1.4));
-  for(let i=0;i<7;i++){const x=5.8+(i%2)*.6,z=-2+i*.7;g.add(mesh(geos.sphere,mat('garden',0x4e7544),x,.6,z,.5,.6,.5),mesh(geos.sphere,mat('flowers',0xd6bc75),x,.98,z,.16,.2,.16));}
-  const label=document.createElement('div');label.className='world-label home-label';label.textContent=own?'Your home':`${h.ownerName}'s home`;this.labelContainer.append(label);this.homes.set(h.id,{...h,group:g,label});g.visible=!this.cave;this.scene.add(g);
+  this.getFoliage();g.add(createBillboardBatch(this.foliage.flowers,Array.from({length:7},(_,i)=>({x:5.8+(i%2)*.6,z:-2+i*.7,y:0,width:1.2,height:1.2}))).batch);
+  const label=document.createElement('div');label.className='world-label home-label';label.textContent=own?'Your home':`${h.ownerName}'s home`;this.labelContainer.append(label);this.homes.set(h.id,{...h,group:g,label});g.visible=!this.cave;this.scene.add(g);this.collision??=new CollisionIndex();this.collision.replace(h.id,homeObstacles(h));
  }
  addRuin(r){
   const g=new T.Group(),stone=mat('ruinStone',0x777d67),dark=mat('ruinDark',0x111e19);g.position.set(r.x,r.y,r.z);
   g.add(mesh(geos.box,stone,0,.15,0,18,.3,18),mesh(geos.box,stone,-3,3,0,1.4,6,1.6),mesh(geos.box,stone,3,3,0,1.4,6,1.6),mesh(geos.box,stone,0,6,0,7.6,1.4,1.7),mesh(geos.box,dark,0,2.65,-.25,4.6,5.3,.5));
   for(let i=0;i<6;i++)g.add(mesh(geos.box,stone,0,.25-i*.1,5-i*.7,4.5,.25,.8));
-  for(let i=0;i<7;i++){const angle=i*2.1,rad=8+hash(r.rx,r.rz,4700+i)*6;g.add(mesh(geos.rock,stone,Math.sin(angle)*rad,.7,Math.cos(angle)*rad,1.8,1.4,1.5));}
-  for(const x of [-7,7])g.add(mesh(geos.box,stone,x,2.2,-5,1.1,4.4,1.1),mesh(geos.box,mat('ivy',0x446640),x+.25,1.7,-4.3,.9,3.4,.35));
-  const label=document.createElement('div');label.className='world-label entrance-label';this.labelContainer.append(label);this.ruins.set(r.id,{...r,group:g,label});this.scene.add(g);
+  for(const n of ruinRubble(r))g.add(mesh(geos.rock,stone,n.x-r.x,.7,n.z-r.z,1.8,1.4,1.5));
+  for(const x of [-7,7])g.add(mesh(geos.box,stone,x,2.2,-5,1.1,4.4,1.1));this.getFoliage();g.add(createBillboardBatch(this.foliage.grass,[-7,7].map(x=>({x:x+.25,z:-4.3,y:0,width:.9,height:3.4}))).batch);
+  const label=document.createElement('div');label.className='world-label entrance-label';this.labelContainer.append(label);this.ruins.set(r.id,{...r,group:g,label});this.scene.add(g);this.collision??=new CollisionIndex();this.collision.replace(r.id,ruinObstacles(r));
  }
- setDepleted(ids){this.depleted=new Set(ids);for(const [id,n]of this.nodes)this.showNode(n,!this.depleted.has(id));if(this.caveModel)for(const [id,n]of this.caveModel.nodes)n.object.visible=!this.depleted.has(id);}
+ setDepleted(ids){this.depleted=new Set(ids);for(const [id,n]of this.nodes)this.showNode(n,!this.depleted.has(id));for(const chunk of this.chunks.values())this.refreshChunkCollision(chunk);if(this.caveModel){for(const [id,n]of this.caveModel.nodes)n.object.visible=!this.depleted.has(id);this.caveCollision=new CollisionIndex();this.caveCollision.replace('cave',caveObstacles(this.cave,this.depleted));}}
+ refreshChunkCollision(chunk){
+  this.collision??=new CollisionIndex();const homes=[...this.homes.values()],shapes=[];
+  for(const id of chunk.ids){const n=this.nodes.get(id);if(!n)continue;n.occupied=!outsideHome(n,homes);this.showNode(n,!this.depleted.has(id));if(!n.occupied&&!this.depleted.has(id)){const o=resourceObstacle(n);if(o)shapes.push(o);}}
+  for(const n of chunk.decorTrees||[])if(outsideHome(n,homes))shapes.push(circle(n.id,n.x,n.z,.45));
+  for(const {batch,items,matrices}of chunk.decorBatches||[]){for(let i=0;i<items.length;i++)batch.setMatrixAt(i,outsideHome(items[i],homes)?matrices[i]:new T.Matrix4().makeScale(0,0,0));batch.instanceMatrix.needsUpdate=true;}
+  this.collision.replace(`chunk:${chunk.cx}:${chunk.cz}`,shapes);
+ }
  showNode(n,visible){visible=visible&&!n.occupied;if(n.instanced){for(const [m,i,matrix]of n.instances){if(visible)m.setMatrixAt(i,matrix);else{const hide=new T.Matrix4().makeScale(0,0,0);m.setMatrixAt(i,hide);}m.instanceMatrix.needsUpdate=true;}}else n.object.visible=visible;}
  setOthers(players){const live=new Set();for(const p of players){if(p.id===this.player?.id)continue;live.add(p.id);let o=this.others.get(p.id);if(!o){o=avatar(0x91b6bb);this.scene.add(o);this.others.set(p.id,o);}o.visible=(p.space||'overworld')===(this.cave?.id||'overworld');o.position.set(p.x,this.cave?0:heightAt(p.x,p.z),p.z);}for(const [id,o]of this.others)if(!live.has(id)){this.scene.remove(o);this.others.delete(id);}}
  ground(x,z){if(this.cave)return 0;if(waterDistance(x,z)<6&&roadDistance(x,z,roadSegments(Math.floor(x/REGION),Math.floor(z/REGION)))<7)return WATER+1.1;return heightAt(x,z);}
- passable(x,z){if(this.cave)return caveWalkable(this.cave,x,z);for(const h of this.homes.values())if(Math.hypot(x-h.x,z-h.z)<5.6)return false;return waterDistance(x,z)>-3||roadDistance(x,z,roadSegments(Math.floor(x/REGION),Math.floor(z/REGION)))<7;}
+ passable(x,z){const p={x,z};if(this.cave)return caveWalkable(this.cave,x,z)&&!this.caveCollision?.blocked(p);return !this.collision?.blocked(p)&&(waterDistance(x,z)>-3||roadDistance(x,z,roadSegments(Math.floor(x/REGION),Math.floor(z/REGION)))<7);}
+ pathClear(a,b){if(this.cave)return cavePathClear(this.cave,a,b)&&!this.caveCollision?.blocked(a,b);return !this.collision?.blocked(a,b)&&waterPathClear(a,b);}
+ walkSpot(pos){if(this.passable(pos.x,pos.z))return pos;let best=null,distance=Infinity;for(let r=1;r<=9;r+=1){for(let i=0;i<24;i++){const q={x:pos.x+Math.sin(i*Math.PI/12)*r,z:pos.z+Math.cos(i*Math.PI/12)*r};if(this.passable(q.x,q.z)){const d=Math.hypot(q.x-this.player.x,q.z-this.player.z);if(d<distance){distance=d;best=q;}}}if(best)return best;}return null;}
+
  updateCamera(dt,snap=false){
   const p=this.player,focus=new T.Vector3(p.x,this.ground(p.x,p.z)+2.5,p.z);this.pitch=clampPitch(this.pitch,!!this.cave);this.yaw=wrapAngle(this.yaw);
   if(snap){this.cameraFocus.copy(focus);this.cameraOrbit={yaw:this.yaw,pitch:this.pitch};}else{this.cameraFocus.lerp(focus,1-Math.exp(-dt*12));this.cameraOrbit=advanceOrbit(this.cameraOrbit,{yaw:this.yaw,pitch:this.pitch},dt,!!this.cave);}
@@ -117,28 +132,29 @@ export class WorldRenderer {
   if(!document.querySelector('dialog[open]')){
    let ax=(this.keys.KeyD||this.keys.ArrowRight?1:0)-(this.keys.KeyA||this.keys.ArrowLeft?1:0),az=(this.keys.KeyS||this.keys.ArrowDown?1:0)-(this.keys.KeyW||this.keys.ArrowUp?1:0);
    if(ax||az){this.target=null;this.path=[];const len=Math.hypot(ax,az);ax/=len;az/=len;vx=ax*Math.cos(this.yaw)+az*Math.sin(this.yaw);vz=-ax*Math.sin(this.yaw)+az*Math.cos(this.yaw);}
-   else if(this.target){const d=Math.hypot(this.target.x-p.x,this.target.z-p.z);if(d<.65)this.target=this.path.shift()||null;else{vx=(this.target.x-p.x)/d;vz=(this.target.z-p.z)/d;}}
+   else if(this.target){const d=Math.hypot(this.target.x-p.x,this.target.z-p.z);if(d<.65)this.target=this.path.shift()||null;else{vx=(this.target.x-p.x)/d;vz=(this.target.z-p.z)/d;this.targetDistance=d;}}
   }
-  const state=advanceMotion(this.motion,dt,{running:!document.querySelector('dialog[open]')&&(this.runToggled||this.keys.ShiftLeft||this.keys.ShiftRight),moving:!!(vx||vz)}),speed=(this.cave?6.5:12)*(state.running?1.65:1),dx=vx*dt*speed,dz=vz*dt*speed;let moved=0;
-  if(vx||vz){const nx=p.x+dx,nz=p.z+dz;if(this.passable(nx,nz)){p.x=nx;p.z=nz;moved=Math.hypot(dx,dz);this.hero.rotation.y=Math.atan2(vx,vz);}else if(this.passable(nx,p.z)){p.x=nx;moved=Math.abs(dx);}else if(this.passable(p.x,nz)){p.z=nz;moved=Math.abs(dz);}else this.target=null;}
+  const state=advanceMotion(this.motion,dt,{running:!document.querySelector('dialog[open]')&&(this.runToggled||this.keys.ShiftLeft||this.keys.ShiftRight),moving:!!(vx||vz)}),speed=(this.cave?6.5:12)*(state.running?1.65:1),dx=vx*dt*speed,dz=vz*dt*speed;let moved=0,movementTrail=[];
+  if(vx||vz){const factor=this.target?Math.min(1,(this.targetDistance||0)/Math.max(.0001,Math.hypot(dx,dz))):1,old={x:p.x,z:p.z},next=moveWithCollisions(p,dx*factor,dz*factor,(a,b)=>this.pathClear(a,b));movementTrail=next.trail;p.x=next.x;p.z=next.z;moved=Math.hypot(p.x-old.x,p.z-old.z);if(moved)this.hero.rotation.y=Math.atan2(p.x-old.x,p.z-old.z);else if(this.target){this.target=null;this.path=[];}}
+
   const y=this.ground(p.x,p.z);this.hero.position.set(p.x,y+state.height+Math.sin(this.clock.elapsedTime*(state.running?17:12))*Math.min(moved*1.5,.15),p.z);this.ring.position.set(p.x,y+.2,p.z);if(this.heldWeapon){const swing=this.motion.swing/ .65;this.heldWeapon.rotation.x=.2+Math.sin(swing*Math.PI)*1.8;this.heldWeapon.rotation.z=-.25+Math.sin(swing*Math.PI)*.7;}
   if(p.dungeon){p.dungeon.x=p.x;p.dungeon.z=p.z;}for(const [i,leg]of this.hero.userData.legs.entries())leg.rotation.x=Math.sin(this.clock.elapsedTime*11+i*Math.PI)*Math.min(moved*4,.5);
   this.updateCamera(dt);this.lantern.position.set(p.x,3.2,p.z);
   this.sun.position.set(p.x-85,y+175,p.z-90);this.sun.target.position.set(p.x,y,p.z);
   this.destination.visible=!!this.target;if(this.target)this.destination.position.set(this.target.x,this.ground(this.target.x,this.target.z)+.3,this.target.z);
   if(this.frame++%20===0&&!this.cave)this.stream();if(this.caveModel)for(const f of this.caveModel.torches)f.scale.y=.65+Math.sin(this.clock.elapsedTime*5+f.position.x)*.08;this.labels();for(const foe of this.opponents.values()){const visible=foe.object.visible&&Math.hypot(p.x-foe.x,p.z-foe.z)<45;foe.label.style.display=visible?'block':'none';if(visible){const v=this.projectedLabel.set(foe.x,(this.cave?0:foe.y)+4,foe.z).project(this.camera);foe.label.style.left=`${(v.x*.5+.5)*this.container.clientWidth}px`;foe.label.style.top=`${(-v.y*.5+.5)*this.container.clientHeight}px`;}}
-  this.onFrame({x:p.x,z:p.z,moved,dt,running:state.running,stamina:state.stamina});this.renderer.render(this.scene,this.camera);
+  this.onFrame({x:p.x,z:p.z,moved,path:movementTrail,dt,running:state.running,stamina:state.stamina});this.renderer.render(this.scene,this.camera);
  }
  stream(){if(this.cave)return;const cx=Math.floor(this.player.x/CHUNK),cz=Math.floor(this.player.z/CHUNK),r=Math.min(4,Math.max(2,Math.ceil(this.zoom*1.6)));
   if(this.cx===cx&&this.cz===cz&&this.radius===r)return;this.cx=cx;this.cz=cz;this.radius=r;
   const want=new Set();const pending=[];
   for(let a=cx-r;a<=cx+r;a++)for(let b=cz-r;b<=cz+r;b++){const key=`${a}:${b}`;want.add(key);if(!this.chunks.has(key))pending.push([a,b]);}
   pending.sort((a,b)=>Math.hypot(a[0]-cx,a[1]-cz)-Math.hypot(b[0]-cx,b[1]-cz));for(const [a,b]of pending)this.addChunk(a,b);
-  for(const [key,chunk]of this.chunks)if(!want.has(key)){this.scene.remove(chunk.group);for(const m of chunk.disposable)m.dispose();for(const id of chunk.ids)this.nodes.delete(id);this.chunks.delete(key);}
-  this.terrain=[...this.chunks.values()].map(c=>c.terrain);for(const [id,ruin]of this.ruins)if(Math.hypot(ruin.x-this.player.x,ruin.z-this.player.z)>CHUNK*(r+2)){this.scene.remove(ruin.group);ruin.label.remove();this.ruins.delete(id);}
+  for(const [key,chunk]of this.chunks)if(!want.has(key)){this.scene.remove(chunk.group);for(const m of chunk.disposable)m.dispose();for(const id of chunk.ids)this.nodes.delete(id);this.chunks.delete(key);this.collision?.remove(`chunk:${chunk.cx}:${chunk.cz}`);}
+  this.terrain=[...this.chunks.values()].map(c=>c.terrain);for(const [id,ruin]of this.ruins)if(Math.hypot(ruin.x-this.player.x,ruin.z-this.player.z)>CHUNK*(r+2)){this.scene.remove(ruin.group);ruin.label.remove();this.ruins.delete(id);this.collision?.remove(id);}
   const rx=Math.floor(this.player.x/REGION),rz=Math.floor(this.player.z/REGION),vWant=new Set();
   for(let a=rx-1;a<=rx+1;a++)for(let b=rz-1;b<=rz+1;b++){const ruin=ruinFor(a,b);if(Math.hypot(ruin.x-this.player.x,ruin.z-this.player.z)<CHUNK*(r+1)&&!this.ruins.has(ruin.id))this.addRuin(ruin);const s=settlement(a,b);if(Math.hypot(s.x-this.player.x,s.z-this.player.z)<CHUNK*3.2){vWant.add(s.id);if(!this.villages.has(s.id))this.addVillage(s);}}
-  for(const [id,v]of this.villages)if(!vWant.has(id)){this.scene.remove(v.group);v.label.remove();for(const npc of v.npcs){this.npcs.get(npc.id)?.label.remove();this.npcs.delete(npc.id);}this.villages.delete(id);}
+  for(const [id,v]of this.villages)if(!vWant.has(id)){this.scene.remove(v.group);v.label.remove();for(const npc of v.npcs){this.npcs.get(npc.id)?.label.remove();this.npcs.delete(npc.id);}this.villages.delete(id);this.collision?.remove(id);}
   this.syncActionState(this.player);
  }
  addChunk(cx,cz){
@@ -155,40 +171,28 @@ export class WorldRenderer {
   const waterGeo=new T.PlaneGeometry(CHUNK,CHUNK);disposable.push(waterGeo);const water=new T.Mesh(waterGeo,materials.water||(materials.water=new T.MeshStandardMaterial({color:0x4c918d,roughness:.4,metalness:.1,transparent:true,opacity:.91})));water.rotation.x=-Math.PI/2;water.position.set((cx+.5)*CHUNK,WATER,(cz+.5)*CHUNK);water.receiveShadow=true;group.add(water);
   // Roads cross river channels on timber bridges.
   const bridgePlaces=new Set();for(const [a,b]of segments){const d=Math.hypot(b.x-a.x,b.z-a.z),n=Math.ceil(d/7);for(let i=0;i<n;i++){const t=(i+.5)/n,x=a.x+(b.x-a.x)*t,z=a.z+(b.z-a.z)*t;if(x<cx*CHUNK||x>=(cx+1)*CHUNK||z<cz*CHUNK||z>=(cz+1)*CHUNK||waterDistance(x,z)>22)continue;const key=`${Math.round(x/6)}:${Math.round(z/6)}`;if(bridgePlaces.has(key))continue;bridgePlaces.add(key);const deck=mesh(geos.box,mat('bridge',0x907449),x,WATER+.65,z,9,.7,8);deck.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);group.add(deck);}}
-  const nodes=resourcesFor(cx,cz),trees=nodes.filter(n=>n.kind==='wood'),trunks=new T.InstancedMesh(geos.trunk,mat('trunk',0x6c573e),trees.length),crowns=new T.InstancedMesh(geos.pine,mat('foliage',0xffffff),trees.length);trunks.castShadow=true;crowns.castShadow=true;trunks.receiveShadow=true;crowns.receiveShadow=true;group.add(trunks,crowns);disposable.push(trunks,crowns);
-  trees.forEach((n,i)=>{const h=7*n.scale,instances=[];for(const [m,y,sx,sy,sz]of [[trunks,n.y+h*.3,.9*n.scale,h*.65,.9*n.scale],[crowns,n.y+h*.75,3.4*n.scale,h,3.4*n.scale]]){this.temp.position.set(n.x,y,n.z);this.temp.rotation.set(0,hash(cx,cz,1000+i)*6.28,0);this.temp.scale.set(sx,sy,sz);this.temp.updateMatrix();m.setMatrixAt(i,this.temp.matrix);instances.push([m,i,this.temp.matrix.clone()]);}crowns.setColorAt(i,new T.Color(BIOMES[n.biome].tree).multiplyScalar(.9+hash(cx,cz,1100+i)*.3));const entry={...n,instanced:true,instances,occupied:[...this.homes.values()].some(h=>Math.hypot(h.x-n.x,h.z-n.z)<12)};this.nodes.set(n.id,entry);ids.push(n.id);this.showNode(entry,!this.depleted.has(n.id));});
-  for(const n of nodes.filter(n=>n.kind!=='wood')){let object;if(n.kind==='stone'){object=mesh(geos.rock,mat('rock',0x8b9585),n.x,n.y+.9,n.z,1.4*n.scale,1.2*n.scale,1.1*n.scale);}else if(n.kind==='berries'){object=new T.Group();object.position.set(n.x,n.y,n.z);object.add(mesh(geos.sphere,mat('bush',0x496a3d),0,.8,0,1.3,.9,1.3));for(let i=0;i<5;i++)object.add(mesh(geos.sphere,mat('berry',0xb86652),Math.sin(i*2.4),1.1,Math.cos(i*2.4),.22,.22,.22));}else{object=mesh(geos.grass,mat('fiber',0xb4b078),n.x,n.y+.8,n.z,1.1,1.7,1.1);}group.add(object);const entry={...n,object,occupied:[...this.homes.values()].some(h=>Math.hypot(h.x-n.x,h.z-n.z)<12)};this.nodes.set(n.id,entry);ids.push(n.id);this.showNode(entry,!this.depleted.has(n.id));}
-  // Instanced biome foliage keeps the landscape dense without per-plant draw calls.
-  const nearbyRuins=[];const rx=Math.floor(cx*CHUNK/REGION),rz=Math.floor(cz*CHUNK/REGION);for(let a=rx-1;a<=rx+1;a++)for(let b=rz-1;b<=rz+1;b++)nearbyRuins.push(ruinFor(a,b));
-  const centerBiome=biomeAt((cx+.5)*CHUNK,(cz+.5)*CHUNK),density={forest:115,meadow:48,marsh:76,highlands:28,tundra:30,desert:16}[centerBiome];
-  const leaf=new T.InstancedMesh(geos.sphere,mat('broadLeaf',0xffffff),density*3),stems=new T.InstancedMesh(geos.trunk,mat('trunk',0x6c573e),density),pines=new T.InstancedMesh(geos.pine,mat('decorPines',0xffffff),density*2);leaf.castShadow=true;stems.castShadow=true;pines.castShadow=true;
-  let treesCount=0,leafCount=0,pineCount=0;
-  const clear=(x,z,padding=0)=>waterDistance(x,z)>10+padding&&nearestSettlement(x,z).distance>50&&roadDistance(x,z,segments)>6+padding&&![...this.homes.values()].some(h=>Math.hypot(h.x-x,h.z-z)<12)&&!nearbyRuins.some(r=>Math.hypot(r.x-x,r.z-z)<20);
-  for(let i=0;i<density;i++){
-   const x=cx*CHUNK+hash(cx,cz,5100+i*2)*CHUNK,z=cz*CHUNK+hash(cx,cz,5101+i*2)*CHUNK;if(!clear(x,z,5))continue;const biome=biomeAt(x,z),y=heightAt(x,z),h=5+hash(cx,cz,5400+i)*8,scale=.8+hash(cx,cz,5500+i)*.7;
-   this.temp.position.set(x,y+h*.35,z);this.temp.scale.set(scale,h*.72,scale);this.temp.rotation.set(0,hash(cx,cz,i+5600)*6.28,0);this.temp.updateMatrix();stems.setMatrixAt(treesCount++,this.temp.matrix);
-   const color=new T.Color(BIOMES[biome].tree).multiplyScalar(1+hash(cx,cz,5700+i)*.45),conifer=biome==='tundra'||biome==='highlands'||hash(cx,cz,5800+i)<.3;
-   if(conifer){for(let j=0;j<2;j++){this.temp.position.set(x,y+h*(.64+j*.22),z);this.temp.scale.set(3.2*scale*(1-j*.24),h*.66,3.2*scale*(1-j*.24));this.temp.updateMatrix();pines.setMatrixAt(pineCount,this.temp.matrix);pines.setColorAt(pineCount++,color);}}
-   else for(let j=0;j<3;j++){this.temp.position.set(x+Math.sin(j*2.1)*scale,y+h*(.7+j*.12),z+Math.cos(j*2.1)*scale);this.temp.scale.set(2.7*scale,h*.28,2.5*scale);this.temp.updateMatrix();leaf.setMatrixAt(leafCount,this.temp.matrix);leaf.setColorAt(leafCount++,color);}
-  }
-  stems.count=treesCount;leaf.count=leafCount;pines.count=pineCount;group.add(stems,leaf,pines);disposable.push(stems,leaf,pines);
-  const grassCount=centerBiome==='desert'?120:650,grass=new T.InstancedMesh(geos.grass,mat('grassPatch',0xffffff),grassCount),shrubs=new T.InstancedMesh(geos.sphere,mat('shrubs',0xffffff),170),flowers=new T.InstancedMesh(geos.sphere,mat('wildFlowers',0xffffff),100);let ng=0,ns=0,nf=0;
-  for(let i=0;i<grassCount;i++){const x=cx*CHUNK+hash(cx,cz,6000+i*2)*CHUNK,z=cz*CHUNK+hash(cx,cz,6001+i*2)*CHUNK;if(!clear(x,z))continue;const biome=biomeAt(x,z),y=heightAt(x,z),r=hash(cx,cz,7500+i),tall=biome==='marsh';this.temp.position.set(x,y+(tall?.65:.3),z);this.temp.rotation.set(0,r*6.28,0);this.temp.scale.set(.6+r*.7,tall?1.8+r:.55+r*.8,.5+r*.4);this.temp.updateMatrix();grass.setMatrixAt(ng,this.temp.matrix);grass.setColorAt(ng++,new T.Color(biome==='desert'?0xb1a26b:biome==='tundra'?0x9cab9a:0x879b4d).multiplyScalar(.8+r*.4));
-   if(i%4===0&&ns<170){this.temp.position.set(x+.8,y+.65,z-.6);this.temp.scale.set(1.1+r,.9+r*.6,1.3+r);this.temp.updateMatrix();shrubs.setMatrixAt(ns,this.temp.matrix);shrubs.setColorAt(ns++,new T.Color(BIOMES[biome].tree).multiplyScalar(1.3));}
-   if(i%7===0&&biome!=='desert'&&biome!=='tundra'&&nf<100){this.temp.position.set(x,y+.8,z);this.temp.scale.set(.2,.23,.2);this.temp.updateMatrix();flowers.setMatrixAt(nf,this.temp.matrix);flowers.setColorAt(nf++,new T.Color([0xe8ce7e,0xbc91b8,0xdfa381][i%3]));}
-  }
-  grass.count=ng;shrubs.count=ns;flowers.count=nf;group.add(grass,shrubs,flowers);disposable.push(grass,shrubs,flowers);
-  this.scene.add(group);this.chunks.set(`${cx}:${cz}`,{group,terrain,ids,disposable,cx,cz});
+  // Two painted tree sprites, drawn in batches with Y locked in the vertex shader.
+  this.getFoliage();
+  const nodes=resourcesFor(cx,cz),decorBatches=[],layout=foliageFor(cx,cz);
+  const addBatch=(material,items,decor=false)=>{const result=createBillboardBatch(material,items);group.add(result.batch);disposable.push(result.batch);if(decor)decorBatches.push({...result,items});return result;};
+  for(let variant=0;variant<2;variant++){const trees=nodes.filter(n=>n.kind==='wood'&&(hash(cx,cz,1000+Number(n.id.split(':').at(-1)))<.5?0:1)===variant).map(n=>({...n,height:10*n.scale,width:10*n.scale})),{batch,matrices}=addBatch(this.foliage.trees[variant],trees);trees.forEach((n,i)=>{const entry={...n,instanced:true,instances:[[batch,i,matrices[i]]],occupied:false};this.nodes.set(n.id,entry);ids.push(n.id);});}
+  for(const n of nodes.filter(n=>n.kind==='stone')){const object=mesh(geos.rock,mat('rock',0x8b9585),n.x,n.y+.9,n.z,1.4*n.scale,1.2*n.scale,1.1*n.scale);group.add(object);this.nodes.set(n.id,{...n,object,occupied:false});ids.push(n.id);}
+  for(const kind of ['berries','fiber']){const items=nodes.filter(n=>n.kind===kind).map(n=>({...n,height:kind==='berries'?2.6:1.7,width:kind==='berries'?2.8:2.2})),{batch,matrices}=addBatch(kind==='berries'?this.foliage.berries:this.foliage.grass,items);items.forEach((n,i)=>{this.nodes.set(n.id,{...n,instanced:true,instances:[[batch,i,matrices[i]]],occupied:false});ids.push(n.id);});}
+  for(let variant=0;variant<2;variant++)addBatch(this.foliage.trees[variant],layout.trees.filter(n=>n.variant===variant).map(n=>({...n,width:n.height})),true);
+  for(let variant=0;variant<2;variant++)addBatch(this.foliage.trees[variant],layout.plants.filter(n=>n.kind==='shrub'&&n.variant===variant),true);
+  addBatch(this.foliage.grass,layout.plants.filter(n=>n.kind==='grass'),true);addBatch(this.foliage.flowers,layout.plants.filter(n=>n.kind==='flowers'),true);
+
+  this.scene.add(group);this.chunks.set(`${cx}:${cz}`,{group,terrain,ids,disposable,cx,cz,decorTrees:layout.trees,decorBatches});this.refreshChunkCollision(this.chunks.get(`${cx}:${cz}`));
  }
  addVillage(s){const group=new T.Group();
-  for(let i=0;i<7;i++){const angle=i*Math.PI*2/7,r=27+hash(s.rx,s.rz,1700+i)*8,x=s.x+Math.cos(angle)*r,z=s.z+Math.sin(angle)*r;const house=new T.Group();house.position.set(x,s.y,z);house.rotation.y=-angle+Math.PI/2;const width=7+hash(s.rx,s.rz,1800+i)*3,depth=7+hash(s.rx,s.rz,1900+i)*4;
+  for(const [i,h]of villageHouses(s).entries()){const {x,z,width,depth}=h,house=new T.Group();house.position.set(x,s.y,z);house.rotation.y=h.rotation;
    house.add(mesh(geos.box,mat('wall',0xc2b58c),0,2,0,width,4,depth),mesh(roof,mat('roof'+i%3,[0x805e41,0x8c7150,0x626b55][i%3]),0,4,0,width*.61,3,depth*.62),mesh(geos.box,mat('door',0x534b36),0,1.1,depth/2+.08,1.4,2.2,.2),mesh(geos.box,mat('window',0x4a655a),-width*.28,2.6,depth/2+.1,.8,1,.15),mesh(geos.box,mat('chimney',0x77735e),width*.28,5.5,-depth*.2,1,3,1));group.add(house);
   }
   // Central stone well.
   const well=new T.Mesh(new T.CylinderGeometry(2,2,1.1,10),mat('well',0x9a9b81));well.position.set(s.x,s.y+.55,s.z-1);group.add(well);group.add(mesh(geos.box,mat('wellWater',0x406e68),s.x,s.y+1.13,s.z-1,2.7,.05,2.7));
   const smith=smithFor(s);if(smith){const x=smith.forgeX,z=smith.forgeZ,y=s.y;group.add(mesh(geos.box,mat('forgeStone',0x6e7564),x,y+1,z,5,2,4),mesh(geos.box,mat('forgeFire',0xeb7130),x,y+1.4,z+2.03,3,.7,.1),mesh(geos.box,mat('forgeChimney',0x626957),x-1.7,y+4,z-1,1,6,1),mesh(geos.box,mat('anvil',0x485852),x+4,y+1,z+1,2.5,.7,1.1),mesh(geos.box,mat('anvilBase',0x795a3b),x+4,y+.4,z+1,1,1,1));}
   const npcs=npcsFor(s);for(const n of npcs){const person=avatar([0xb29054,0x6c8c76,0xa5826c,0x8c6350][npcs.indexOf(n)]);person.position.set(n.x,n.y,n.z);person.rotation.y=hash(s.rx,s.rz,npcs.indexOf(n)+1900)*6.28;group.add(person);const label=document.createElement('div');label.className='world-label';label.textContent=n.role==='smith'?`${n.name} · Smith`:n.name;this.labelContainer.append(label);this.npcs.set(n.id,{...n,object:person,label});}
-  const label=document.createElement('div');label.className='world-label village';label.textContent=s.name;this.labelContainer.append(label);this.villages.set(s.id,{...s,group,npcs,label});this.scene.add(group);
+  const label=document.createElement('div');label.className='world-label village';label.textContent=s.name;this.labelContainer.append(label);this.villages.set(s.id,{...s,group,npcs,label});this.scene.add(group);this.collision??=new CollisionIndex();this.collision.replace(s.id,villageObstacles(s));
   if(this.player)this.syncActionState(this.player);
  }
  labels(){

@@ -77,7 +77,8 @@ const server=http.createServer(async(req,res)=>{
      p=stateOf(actor);if(p.revision!==body.revision)throw Error('Your traveler changed in another session. Reload and try again.');
      const depleted=a.type==='gather'&&!!db.prepare('SELECT id FROM nodes WHERE id=?').get(String(a.target));
      const memories=a.type==='talk'?db.prepare('SELECT * FROM memories WHERE npc=? ORDER BY created_at DESC').all(String(a.target)).map(memoryRow):[];
-     const result=validateAction(p,a,{depleted,memories}),now=Date.now();
+     const movement={};if(a.type==='move'&&!p.dungeon){const cx=Math.floor(p.x/CHUNK),cz=Math.floor(p.z/CHUNK),rx=Math.floor(p.x/REGION),rz=Math.floor(p.z/REGION),villages=[];for(let x=rx-1;x<=rx+1;x++)for(let z=rz-1;z<=rz+1;z++)villages.push(`v:${x}:${z}`);movement.homes=db.prepare(`SELECT state FROM homes WHERE village IN (${villages.map(()=>'?').join(',')}) LIMIT 200`).all(...villages).map(h=>JSON.parse(h.state));if(!movement.homes.some(h=>h.owner===p.id))movement.homes.push(p.house);movement.depletedIds=db.prepare("SELECT id FROM nodes WHERE space='overworld' AND cx BETWEEN ? AND ? AND cz BETWEEN ? AND ?").all(cx-3,cx+3,cz-3,cz+3).map(n=>n.id);}
+     const result=validateAction(p,a,{depleted,memories,...movement}),now=Date.now();
      if(a.type==='gather'){const parts=a.target.split(':');db.prepare('INSERT INTO nodes(id,cx,cz,actor,depleted_at,space) VALUES(?,?,?,?,?,?)').run(a.target,+parts[1],+parts[2],actor,now,result.extra.space);}
      if(a.type==='talk')db.prepare('INSERT INTO memories(npc,player_id,player_name,message,response,created_at) VALUES(?,?,?,?,?,?)').run(a.target,actor,result.player.name,result.extra.message,result.extra.response,now);
      db.prepare('UPDATE homes SET state=? WHERE owner=?').run(JSON.stringify(result.player.house),actor);

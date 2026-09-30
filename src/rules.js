@@ -1,6 +1,7 @@
 import {initialPlayer,nearestSettlement,waterDistance,resolveResource,resolveNpc,LIMIT,roadDistance,roadSegments,REGION,smithFor,settlement} from './world.js?v=6';
 import {normalizePlayer} from './homes.js?v=6';
 import {applyActionGame} from './action-game.js?v=6';
+import {buildSurfaceCollisions,waterPathClear} from './world-collision.js?v=7';
 import {resolveDungeon,resolveCaveResource,cavePathClear,caveWalkable,roomAt,ruinFor} from './dungeons.js?v=2';
 export const RESOURCE_LABELS={wood:'wood',stone:'stone',berries:'berries',fiber:'fiber'};
 export function cleanName(s){return String(s||'Traveler').trim().slice(0,28)||'Traveler';}
@@ -24,7 +25,7 @@ export function validateAction(input,a,context={}) {
   const start=p.dungeon||p,trail=Array.isArray(a.trail)?a.trail:[];if(trail.length>80||trail.some(q=>!Number.isFinite(q.x)||!Number.isFinite(q.z)))throw Error('Invalid movement trail.');const points=[start,...trail,{x,z}];const distance=points.slice(1).reduce((sum,q,i)=>sum+Math.hypot(q.x-points[i].x,q.z-points[i].z),0),elapsed=Math.max(2,(now-(p.updatedAt||now))/1000);
   if(distance>Math.min(240,elapsed*24+18))throw Error('You are moving too far in one step.');
   if(p.dungeon){if(a.space!==p.dungeon.id)throw Error('Your location changed. Reload and try again.');const d=resolveDungeon(p.dungeon.id);if(points.slice(1).some((q,i)=>!cavePathClear(d,points[i],q)))throw Error('A dungeon wall blocks the way.');next.dungeon.x=x;next.dungeon.z=z;const room=roomAt(d,x,z);if(room!==null&&!next.caves[d.id].rooms.includes(room))next.caves[d.id].rooms.push(room);extra={dungeon:d.id,room};}
-  else{if(a.space&&a.space!=='overworld')throw Error('You are not inside that dungeon.');if(waterDistance(x,z)<-4&&roadDistance(x,z,roadSegments(Math.floor(x/REGION),Math.floor(z/REGION)))>7)throw Error('Deep water blocks the way. Look for a bridge.');next.x=x;next.z=z;const s=nearestSettlement(x,z);if(s.distance<80&&!next.visited.includes(s.id))next.visited.push(s.id);}
+  else{if(a.space&&a.space!=='overworld')throw Error('You are not inside that dungeon.');const homes=context.homes||[p.house],collision=buildSurfaceCollisions(points,{homes,depletedIds:context.depletedIds||[]});if(points.slice(1).some((q,i)=>collision.blocked(points[i],q)))throw Error('A solid obstacle blocks the way. Walk around it.');if(points.slice(1).some((q,i)=>!waterPathClear(points[i],q)))throw Error('Deep water blocks the way. Look for a bridge.');next.x=x;next.z=z;const s=nearestSettlement(x,z);if(s.distance<80&&!next.visited.includes(s.id))next.visited.push(s.id);}
   const running=Number(a.runDistance||0);if(!Number.isFinite(running)||running<0||running>distance+.5)throw Error('Invalid running distance.');next.actionStats.runDistance+=running;next.distance=(p.distance||0)+distance;next.food=Math.max(5,p.food-distance*.008-running*.005);next.water=Math.max(5,p.water-distance*.013-running*.008);summary=`${running>0?'Traveled':'Walked'} ${Math.round(distance)} m`;break;
  }
  case 'gather':{

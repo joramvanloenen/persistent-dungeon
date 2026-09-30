@@ -16,7 +16,7 @@
  <script type="module">
   import {drawMap,drawMiniMap,drawCaveMap} from '../src/map.js?v=6';
   import {generateDungeon} from '../src/dungeons.js?v=2';
-  import {createPlayer} from '../src/rules.js?v=6';
+  import {createPlayer} from '../src/rules.js?v=7';
   import {installUILayout} from '../src/ui-layout.js?v=4';
   const frame=document.getElementById('preview'),source=await(await fetch('../index.html?v=6')).text(),doc=new DOMParser().parseFromString(source,'text/html');
   doc.querySelectorAll('script').forEach(e=>e.remove());const base=doc.createElement('base');base.href=new URL('../',location.href).href;doc.head.prepend(base);
