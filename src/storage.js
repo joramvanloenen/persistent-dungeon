@@ -1,5 +1,6 @@
 import CONFIG from '../config.js';
-import {createPlayer,validateAction} from './rules.js';
+import {createPlayer,validateAction} from './rules.js?v=2';
+import {normalizePlayer} from './homes.js?v=2';
 const LOCAL_KEY='evermere-local-v1';
 export class Store {
  constructor(){this.mode=CONFIG.apiUrl?'server':CONFIG.supabaseUrl&&CONFIG.supabasePublishableKey?'cloud':'local';this.session=null;this.local=null;this.localError=null;this.listeners=[];this.queue=Promise.resolve();}
@@ -8,7 +9,7 @@ export class Store {
    let raw;try{raw=localStorage.getItem(LOCAL_KEY);}catch{this.localError='Browser storage is blocked. Progress cannot be saved on this device.';}
    if(raw){try{this.local=JSON.parse(raw);if(!this.local.player||!this.local.nodes||!this.local.memories)throw Error();}catch{throw Error('The local save could not be read. Export or repair it before continuing.');}}
    if(!this.local)this.local={player:createPlayer(crypto.randomUUID(),'Traveler'),nodes:{},memories:[],events:[]};
-   this.saveLocal();return;
+   this.local.player=normalizePlayer(this.local.player);this.saveLocal();return;
   }
   if(this.mode==='server'){this.session=localStorage.getItem('evermere-server-token');return;}
   if(this.mode==='cloud'){
@@ -41,10 +42,10 @@ export class Store {
  }
  action(action,player){const task=()=>this.request('action',{action,revision:player.revision});const pending=this.queue.then(task,task);this.queue=pending.catch(()=>{});return pending;}
  async localRequest(path,body={}){
-  const raw=localStorage.getItem(LOCAL_KEY);if(raw){const latest=JSON.parse(raw);if(latest.player.revision>this.local.player.revision)this.local=latest;}
+  const raw=localStorage.getItem(LOCAL_KEY);if(raw){const latest=JSON.parse(raw);if(latest.player.revision>this.local.player.revision){this.local=latest;this.local.player=normalizePlayer(this.local.player);}}
   const l=this.local;
-  if(path==='state')return {player:structuredClone(l.player),depleted:Object.keys(l.nodes),players:[],events:l.events.slice(-12).reverse()};
-  if(path==='memory')return {memories:l.memories.filter(m=>m.npc===body.npc)};
+  if(path==='state')return {player:structuredClone(l.player),depleted:Object.keys(l.nodes),homes:[l.player.house],players:[],events:l.events.slice(-12).reverse()};
+  if(path==='memory'){const memories=l.memories.filter(m=>m.npc===body.npc&&(!body.personal||m.playerId===l.player.id)).slice().reverse();const offset=Math.max(0,Math.min(1000000,Number(body.offset)||0));return {memories:memories.slice(offset,offset+200).reverse(),hasMore:memories.length>offset+200};}
   if(path==='action'){
    // Local preview follows the same server rules, including atomic resource claims.
    if(!Number.isInteger(body.revision)||body.revision!==l.player.revision)throw Error('Your traveler changed in another session. Reload and try again.');

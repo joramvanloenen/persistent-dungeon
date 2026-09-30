@@ -1,5 +1,6 @@
 import {createPlayer,validateAction} from '../../../src/rules.js';
-import {resolveNpc,CHUNK} from '../../../src/world.js';
+import {normalizePlayer} from '../../../src/homes.js';
+import {resolveNpc,CHUNK,REGION} from '../../../src/world.js';
 // Auth and all mutation validation happen here, before the atomic SQL transaction.
 const base=Deno.env.get('SUPABASE_URL')!,key=Deno.env.get('SUPABASE_SERVICE_ROLE_KEY')!;
 const allowed=Deno.env.get('GAME_ORIGIN')||'https://joramvanloenen.github.io';
@@ -17,19 +18,21 @@ Deno.serve(async(request:Request)=>{
   const auth=request.headers.get('authorization');if(!auth)return reply({error:'Sign in to your traveler.'},401);
   const u=await fetch(base+'/auth/v1/user',{headers:{Authorization:auth,apikey:key}});if(!u.ok)return reply({error:'Your sign-in expired. Please sign in again.'},401);const user=await u.json();
   const raw=await request.text();if(raw.length>10000)return reply({error:'Request too large.'},413);const body=JSON.parse(raw);
-  let rows=await db('game_players?id=eq.'+enc(user.id)+'&select=*');
-  if(!rows.length){const state=createPlayer(user.id,'Traveler');await db('game_players?on_conflict=id',{method:'POST',headers:{Prefer:'resolution=ignore-duplicates'},body:JSON.stringify({id:user.id,state,revision:0})});rows=await db('game_players?id=eq.'+enc(user.id)+'&select=*');}
-  const p=rows[0].state;
+  const provision=await db('rpc/provision_game_player',{method:'POST',body:JSON.stringify({actor_id:user.id,initial_state:createPlayer(user.id,'Traveler')})});
+  const p=normalizePlayer(provision.player,provision.plot);
   if(body.path==='state'){
-   const cx=Math.floor(p.x/CHUNK),cz=Math.floor(p.z/CHUNK);
-   const nodes=await db(`game_nodes?cx=gte.${cx-3}&cx=lte.${cx+3}&cz=gte.${cz-3}&cz=lte.${cz+3}&select=id`);
+   const cx=Math.floor(p.x/CHUNK),cz=Math.floor(p.z/CHUNK),rx=Math.floor(p.x/REGION),rz=Math.floor(p.z/REGION),spaces:string[]=[],villages:string[]=[];
+   for(let x=rx-1;x<=rx+1;x++)for(let z=rz-1;z<=rz+1;z++){spaces.push(`d:${x}:${z}`);villages.push(`v:${x}:${z}`);}if(p.dungeon&&!spaces.includes(p.dungeon.id))spaces.push(p.dungeon.id);
+   const nodes=await db(`game_nodes?or=(and(space.eq.overworld,cx.gte.${cx-4},cx.lte.${cx+4},cz.gte.${cz-4},cz.lte.${cz+4}),space.in.(${spaces.map(enc).join(',')}))&select=id`);
+   const homeRows=await db('game_homes?village=in.('+villages.map(enc).join(',')+')&select=state&limit=200');const homes=homeRows.map((h:any)=>h.state).filter(Boolean);if(!homes.some((h:any)=>h.owner===p.id))homes.push(p.house);
    const others=await db('game_players?updated_at=gte.'+enc(new Date(Date.now()-120000).toISOString())+'&select=id,state&limit=50');
+   const players=others.map((n:any)=>{const pos=n.state.dungeon||n.state;return {id:n.id,name:n.state.name,x:pos.x,z:pos.z,space:n.state.dungeon?.id||'overworld'};}).filter((n:any)=>n.space===(p.dungeon?.id||'overworld')&&Math.hypot(n.x-(p.dungeon||p).x,n.z-(p.dungeon||p).z)<900);
    const events=await db('game_events?actor=eq.'+enc(user.id)+'&order=created_at.desc&limit=20');
-   return reply({player:p,depleted:nodes.map((n:any)=>n.id),players:others.filter((n:any)=>Math.hypot(n.state.x-p.x,n.state.z-p.z)<700).map((n:any)=>({id:n.id,name:n.state.name,x:n.state.x,z:n.state.z})),events:events.map((e:any)=>({...e,createdAt:new Date(e.created_at).getTime()}))});
+   return reply({player:p,depleted:nodes.map((n:any)=>n.id),homes,players,events:events.map((e:any)=>({...e,createdAt:new Date(e.created_at).getTime()}))});
   }
   if(body.path==='memory'){
    const n=resolveNpc(String(body.npc));if(!n||Math.hypot(n.x-p.x,n.z-p.z)>20)return reply({error:'Walk closer to this person.'},400);
-   const m=await db('game_memories?npc=eq.'+enc(n.id)+'&order=created_at.desc&limit=200');return reply({memories:m.reverse().map(memory)});
+   const offset=Math.max(0,Math.min(1000000,Math.floor(Number(body.offset)||0)));const m=await db('game_memories?npc=eq.'+enc(n.id)+(body.personal?'&player_id=eq.'+enc(user.id):'')+'&order=id.desc&limit=201&offset='+offset);return reply({memories:m.slice(0,200).reverse().map(memory),hasMore:m.length>200});
   }
   if(body.path==='action'){
    const a=body.action;let depleted=false,memories:any[]=[];

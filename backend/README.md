@@ -27,6 +27,7 @@ Place it behind HTTPS with a persistent disk and backups, then set `apiUrl` in `
 
 - The fixed seed and generator v1 recreate untouched terrain; edits are append-only events plus materialized state. Never change the seed or ID algorithm in place. New terrain rules require a versioned world and migration.
 - Resource depletion is permanent in this first version. Future regeneration should append a new event.
+- Every new visit starts at the player’s owned home, including when the previous session ended underground. Supplies, conversations, visited chambers, and cave resource depletion remain saved.
 - Movement saves every two seconds while moving. Every confirmed gather, supply action, rename, and conversation commits immediately. Closing abruptly can lose up to two seconds of unsaved movement; the browser warns when possible. A failed save is shown, never treated as successful.
 - Two clients of the same account cannot silently overwrite one another: revision checks reject stale writes. Two players cannot claim the same resource.
 - NPC memories are shared in the game world and attributed to the traveler name; other players may ask NPCs to recall what they know. Do not put private personal information into public conversations.

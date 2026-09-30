@@ -55,3 +55,57 @@ end;
 $$;
 revoke all on function public.apply_game_action(uuid,bigint,jsonb,text,text,jsonb) from public,anon,authenticated;
 grant execute on function public.apply_game_action(uuid,bigint,jsonb,text,text,jsonb) to service_role;
+
+-- Expansion v2: player homes and dungeon resource spaces. Safe for existing saves.
+alter table public.game_nodes add column if not exists space text not null default 'overworld';
+create index if not exists game_nodes_space on public.game_nodes(space);
+create table if not exists public.game_homes (
+ owner uuid primary key references public.game_players(id), village text not null,
+ plot integer not null, state jsonb, unique(village,plot)
+);
+alter table public.game_homes enable row level security;
+revoke all on public.game_homes from anon,authenticated;
+grant all on public.game_homes to service_role;
+create or replace function public.provision_game_player(actor_id uuid,initial_state jsonb)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare p jsonb;v text;slot integer;
+begin
+ insert into game_players(id,state,revision) values(actor_id,initial_state,0) on conflict(id) do nothing;
+ select state into p from game_players where id=actor_id for update;
+ v=p->>'home';
+ select plot into slot from game_homes where owner=actor_id;
+ if not found then
+  perform pg_advisory_xact_lock(hashtext(v));
+  select coalesce(max(plot),-1)+1 into slot from game_homes where village=v;
+  insert into game_homes(owner,village,plot) values(actor_id,v,slot);
+ end if;
+ return jsonb_build_object('player',p,'plot',slot);
+end;
+$$;
+revoke all on function public.provision_game_player(uuid,jsonb) from public,anon,authenticated;
+grant execute on function public.provision_game_player(uuid,jsonb) to service_role;
+
+create or replace function public.apply_game_action(actor_id uuid, expected_revision bigint, next_state jsonb, action_type text, action_summary text, extra jsonb)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare current_rev bigint;
+begin
+ select revision into current_rev from game_players where id=actor_id for update;
+ if not found then raise exception 'Traveler not found';end if;
+ if current_rev<>expected_revision then raise exception 'Your traveler changed in another session. Reload and try again.';end if;
+ if (select count(*) from game_events where actor=actor_id and created_at>now()-interval '1 minute')>90 then raise exception 'Too many actions. Wait a moment.';end if;
+ if action_type='talk' and (select count(*) from game_events where actor=actor_id and type='talk' and created_at>now()-interval '1 minute')>=20 then raise exception 'Give your conversation a moment.';end if;
+ if action_type='gather' then
+  insert into game_nodes(id,cx,cz,actor,space) values(extra->>'resource',(split_part(extra->>'resource',':',2))::integer,(split_part(extra->>'resource',':',3))::integer,actor_id,coalesce(extra->>'space','overworld'));
+ end if;
+ if action_type='talk' then
+  insert into game_memories(npc,player_id,player_name,message,response) values(extra->>'npc',actor_id,next_state->>'name',extra->>'message',extra->>'response');
+ end if;
+ update game_players set state=next_state,revision=current_rev+1,updated_at=now() where id=actor_id;
+ update game_homes set state=next_state->'house' where owner=actor_id;
+ insert into game_events(actor,type,summary,data) values(actor_id,action_type,action_summary,extra);
+ return next_state;
+exception when unique_violation then raise exception 'Someone has already gathered this resource.';
+end;
+$$;
+revoke all on function public.apply_game_action(uuid,bigint,jsonb,text,text,jsonb) from public,anon,authenticated;
+grant execute on function public.apply_game_action(uuid,bigint,jsonb,text,text,jsonb) to service_role;
