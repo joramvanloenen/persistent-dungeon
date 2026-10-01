@@ -1,7 +1,7 @@
-import {planetAt} from './planets.js?v=10';
-import {RESOURCE_NAMES} from './fringe-lore.js?v=10';
-import {hash,settlement,smithFor} from './world.js?v=10';
-import {resolveDungeon,TILE,cavePathClear} from './dungeons.js?v=10';
+import {planetAt} from './planets.js?v=11';
+import {RESOURCE_NAMES} from './fringe-lore.js?v=11';
+import {hash,settlement,smithFor} from './world.js?v=11';
+import {resolveDungeon,TILE,cavePathClear} from './dungeons.js?v=11';
 export const WEAPONS=Object.freeze([
  {id:'dagger',name:'Vibroknife',fee:4,iron:2,wood:1,hits:10,damage:12,reach:4.4,description:'A compact salvage tool with an oscillating alloy edge.'},
  {id:'sword',name:'Arc blade',fee:7,iron:3,wood:2,hits:14,damage:18,reach:5.5,description:'A field blade with a charged cutting rail and longer reach.'},

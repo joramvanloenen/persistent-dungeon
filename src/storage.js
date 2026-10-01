@@ -1,6 +1,6 @@
 import CONFIG from '../config.js';
-import {createPlayer,validateAction} from './rules.js?v=10';
-import {normalizePlayer} from './homes.js?v=10';
+import {createPlayer,validateAction} from './rules.js?v=11';
+import {normalizePlayer} from './homes.js?v=11';
 const LOCAL_KEY='evermere-local-v1';
 export class Store {
  constructor(){this.mode=CONFIG.apiUrl?'server':CONFIG.supabaseUrl&&CONFIG.supabasePublishableKey?'cloud':'local';this.session=null;this.local=null;this.localError=null;this.listeners=[];this.queue=Promise.resolve();}

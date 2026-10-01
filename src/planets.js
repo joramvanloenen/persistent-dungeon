@@ -1,4 +1,4 @@
-import {LIMIT,REGION,settlement,hash,nearestSettlement} from './world.js?v=10';
+import {LIMIT,REGION,settlement,hash,nearestSettlement} from './world.js?v=11';
 export const PLANET_SPAN=16384;
 const names=['Vesper IX','Cinder Reach','Glasswake','Brinefall','Sable Meridian','Spindle','Low Sun','Morrow Ash','Quiet Vector'];
 const types=['Cold frontier','Dust basin','Glasslands','Tidal garden','Verdant frontier','Storm belt','Dry frontier','Basalt shelf','Frost basin'];

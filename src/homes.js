@@ -1,5 +1,5 @@
-import {planetAt} from './planets.js?v=10';
-import {settlement,heightAt,waterDistance,roadDistance,roadSegments,hash} from './world.js?v=10';
+import {planetAt} from './planets.js?v=11';
+import {settlement,heightAt,waterDistance,roadDistance,roadSegments,hash} from './world.js?v=11';
 export function homeFor(player,plot=0){
  const match=/^v:(-?\d+):(-?\d+)$/.exec(player.home);if(!match)throw Error('Your home colony cannot be found.');
  const s=settlement(+match[1],+match[2]),roads=roadSegments(s.rx,s.rz);let found=-1,x,z,angle;

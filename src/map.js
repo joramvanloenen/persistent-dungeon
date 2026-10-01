@@ -1,6 +1,6 @@
-import {planetAt,planetContains} from './planets.js?v=10';
-import {ruinFor,TILE,roomAt} from './dungeons.js?v=10';
-import {BIOMES,REGION,biomeAt,heightAt,waterDistance,roadSegments,roadDistance,settlement,smithFor} from './world.js?v=10';
+import {planetAt,planetContains} from './planets.js?v=11';
+import {ruinFor,TILE,roomAt} from './dungeons.js?v=11';
+import {BIOMES,REGION,biomeAt,heightAt,waterDistance,roadSegments,roadDistance,settlement,smithFor} from './world.js?v=11';
 const miniCache=new WeakMap(),roomCache=new WeakMap();
 function playerMarker(ctx,x,y,heading=0,size=7){
  ctx.save();ctx.translate(x,y);ctx.rotate(Math.PI-heading);ctx.fillStyle='#fffaf0';ctx.strokeStyle='#087d79';ctx.lineWidth=2;

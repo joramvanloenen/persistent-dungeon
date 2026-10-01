@@ -39,6 +39,8 @@ The 39 tests cover generation, migration, local and server reloads, shared resou
 
 `dev/fringe-preview.html` is a disposable UI playtest using the real transit, fabrication, and conversation rules in memory. It includes desktop and 320/390 px phone layouts and a visible control audit. It does not load WebGL or change a traveler save. Other `dev/` previews exercise dialogue layout, camera-oriented minimaps, and fabrication timing.
 
+![Mobile dialogue playtest using disposable data](docs/fringe-mobile-ui-20261001.jpg)
+
 ## Architecture
 
 - `src/world.js`: stable seeded terrain, resources, colonies, and NPCs.

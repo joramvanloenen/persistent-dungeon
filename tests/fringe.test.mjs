@@ -41,7 +41,7 @@ test('Powerballs can be recovered, refined and traded only with validated resour
 });
 test('Drifters explain canon while recalling exact personal and other player information',()=>{
  const p=starter(),npc=npcsFor(settlement(0,0))[0],memory=[{playerId:p.id,message:'My ship is called Little Lantern.'},{playerId:'other',playerName:'Jo',message:'I hid a silver antenna under the recycler.'}];
- assert.match(npcReply(npc,p,'What do you know about the Freight Wars?',memory),/Dugall/);assert.match(npcReply(npc,p,'Who was Klem Earlie?',memory),/disbanded/);assert.match(npcReply(npc,p,'Tell me about the Feigngull Massacre',memory),/Maven/);assert.match(npcReply(npc,p,'Do you remember my ship?',memory),/My ship is called Little Lantern/);assert.match(npcReply(npc,p,'Remember the silver antenna?',memory),/Jo spoke/);
+ assert.match(npcReply(npc,p,'What do you know about the Freight Wars?',memory),/Dugall/);assert.match(npcReply(npc,p,'Who was Klem Earlie?',memory),/disbanded/);assert.match(npcReply(npc,p,'Tell me about the Feigngull Massacre',memory),/Maven/);assert.match(npcReply(npc,p,'Do you remember my ship?',memory),/My ship is called Little Lantern/);assert.match(npcReply(npc,p,'What do you know about my ship?',memory),/My ship is called Little Lantern/);assert.match(npcReply(npc,p,'What did Klem Earlie do?',memory),/disbanded/);assert.match(npcReply(npc,p,'Remember the silver antenna?',memory),/Jo spoke/);
 });
 test('planet travel, voucher use, NPC memory and discoveries survive local reload and return to the original pod',async()=>{
  const memory=new Map();globalThis.localStorage={getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)};

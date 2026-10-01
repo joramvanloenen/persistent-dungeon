@@ -1,10 +1,10 @@
-import {RESOURCE_NAMES,loreReply,containsPowerball} from './fringe-lore.js?v=10';
-import {applyTransit,planetAt,planetContains} from './planets.js?v=10';
-import {initialPlayer,nearestSettlement,waterDistance,resolveResource,resolveNpc,LIMIT,roadDistance,roadSegments,REGION,smithFor,settlement} from './world.js?v=10';
-import {normalizePlayer} from './homes.js?v=10';
-import {applyActionGame} from './action-game.js?v=10';
-import {buildSurfaceCollisions,waterPathClear} from './world-collision.js?v=10';
-import {resolveDungeon,resolveCaveResource,cavePathClear,caveWalkable,roomAt,ruinFor} from './dungeons.js?v=10';
+import {RESOURCE_NAMES,loreReply,containsPowerball} from './fringe-lore.js?v=11';
+import {applyTransit,planetAt,planetContains} from './planets.js?v=11';
+import {initialPlayer,nearestSettlement,waterDistance,resolveResource,resolveNpc,LIMIT,roadDistance,roadSegments,REGION,smithFor,settlement} from './world.js?v=11';
+import {normalizePlayer} from './homes.js?v=11';
+import {applyActionGame} from './action-game.js?v=11';
+import {buildSurfaceCollisions,waterPathClear} from './world-collision.js?v=11';
+import {resolveDungeon,resolveCaveResource,cavePathClear,caveWalkable,roomAt,ruinFor} from './dungeons.js?v=11';
 export const RESOURCE_LABELS=RESOURCE_NAMES;
 export function cleanName(s){return String(s||'Traveler').trim().slice(0,28)||'Traveler';}
 export function validateAction(input,a,context={}) {
@@ -56,8 +56,9 @@ export function npcReply(npc,p,message,memories) {
  const mine=memories.filter(m=>m.playerId===p.id),lower=message.toLowerCase(),words=lower.match(/[\p{L}\p{N}]{4,}/gu)||[];
  const stop=new Set(['remember','recall','about','what','told','know','that','your','have','would','please']);
  const scored=memories.map((m,i)=>({m,score:words.filter(w=>!stop.has(w)).reduce((s,w)=>s+(m.message.toLowerCase().includes(w)?1:0),0),i})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||a.i-b.i),match=scored[0]?.m;
- if(/remember|recall|told|memory|what did|onthoud|weet|verteld/.test(lower)){const m=match||mine[0]||memories[0];return m?`${m.playerId===p.id?'You':m.playerName||'A traveler'} spoke of this: “${m.message}” A detail like that stays with a person.`:`We haven't traded stories yet, ${p.name}. What should I remember?`;}
- const history=loreReply(message);if(history)return history;
+ const history=loreReply(message);
+ if(/remember|recall|told|memory|onthoud|weet|verteld|what did (?:i|we|you) (?:say|tell)/.test(lower)||/know about|what did/.test(lower)&&!history){const m=match||mine[0]||memories[0];return m?`${m.playerId===p.id?'You':m.playerName||'A traveler'} spoke of this: “${m.message}” A detail like that stays with a person.`:`We haven't traded stories yet, ${p.name}. What should I remember?`;}
+ if(history)return history;
  if(/ruin|dungeon|cave|barrow|ancient|facility|bunker|site/.test(lower))return `There's a sealed industrial site beyond ${npc.village}. Old freight hardware, abandoned extraction lines, active security. Diamond marks on the survey locate the access locks. Supplies remain below, but don't count on the power being off.`;
  if(/home|house|roof|pod/.test(lower))return `Your landing pod is at the edge of ${p.house?.villageName||npc.village}. Its marker is on your surface survey. You'll wake there when you return; your cargo and conversations stay with you.`;
  if(/planet|transit|shuttle|ship|land/.test(lower))return 'Open your surface map and choose Planet transit. Colony beacons connect you to Dugall shuttles. Your arrival voucher covers one trip; later passage costs four credits or a Powerball. No public transit runs this far out.';

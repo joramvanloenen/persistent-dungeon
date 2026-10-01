@@ -1,4 +1,4 @@
-import {WEAPONS,HEAT,heatState,forgeSpot,resolveSmith} from './action-game.js?v=10';
+import {WEAPONS,HEAT,heatState,forgeSpot,resolveSmith} from './action-game.js?v=11';
 export function installForgeUI({getPlayer,act,openDialog,onTalk,onUpdate,doc=document,clock=()=>Date.now()}){
  const $=id=>doc.getElementById(id);let smith=null,view='catalog',waiting=false,offset=0,raf,finished=null;
  const now=()=>clock()+offset;

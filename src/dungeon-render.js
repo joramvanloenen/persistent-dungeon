@@ -1,6 +1,6 @@
 import * as T from '../vendor/three.module.js';
-import {containsPowerball} from './fringe-lore.js?v=10';
-import {TILE,caveWalkable} from './dungeons.js?v=10';
+import {containsPowerball} from './fringe-lore.js?v=11';
+import {TILE,caveWalkable} from './dungeons.js?v=11';
 const box=new T.BoxGeometry(1,1,1),rock=new T.IcosahedronGeometry(1,0),cylinder=new T.CylinderGeometry(1,1,1,7);
 function material(color,emissive=0){return new T.MeshStandardMaterial({color,roughness:.95,flatShading:true,emissive,emissiveIntensity:1.4});}
 function m(geo,mat,x,y,z,sx,sy,sz){const mesh=new T.Mesh(geo,mat);mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);mesh.castShadow=true;mesh.receiveShadow=true;return mesh;}
