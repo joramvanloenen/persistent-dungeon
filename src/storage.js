@@ -1,6 +1,6 @@
 import CONFIG from '../config.js';
-import {createPlayer,validateAction} from './rules.js?v=8';
-import {normalizePlayer} from './homes.js?v=6';
+import {createPlayer,validateAction} from './rules.js?v=9';
+import {normalizePlayer} from './homes.js?v=9';
 const LOCAL_KEY='evermere-local-v1';
 export class Store {
  constructor(){this.mode=CONFIG.apiUrl?'server':CONFIG.supabaseUrl&&CONFIG.supabasePublishableKey?'cloud':'local';this.session=null;this.local=null;this.localError=null;this.listeners=[];this.queue=Promise.resolve();}
@@ -60,5 +60,5 @@ export class Store {
  }
  saveLocal(){if(this.localError)throw Error(this.localError);try{localStorage.setItem(LOCAL_KEY,JSON.stringify(this.local));}catch{throw Error('Your browser could not save progress. Free storage and try again.');}}
  exportLocal(){return JSON.stringify({format:'evermere-local-v1',savedAt:Date.now(),...this.local},null,2);}
- importLocal(raw){const s=JSON.parse(raw);if(s.format!=='evermere-local-v1'||!s.player?.inventory||!Array.isArray(s.memories)||!Array.isArray(s.events)||!s.nodes)throw Error('That is not an Evermere save.');const old=this.local;this.local=s;try{this.saveLocal();}catch(e){this.local=old;throw e;}}
+ importLocal(raw){const s=JSON.parse(raw);if(s.format!=='evermere-local-v1'||!s.player?.inventory||!Array.isArray(s.memories)||!Array.isArray(s.events)||!s.nodes)throw Error('That is not a compatible game save.');const old=this.local;this.local=s;try{this.saveLocal();}catch(e){this.local=old;throw e;}}
 }

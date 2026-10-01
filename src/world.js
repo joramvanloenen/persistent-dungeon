@@ -6,12 +6,12 @@ export const REGION = 1024;
 export const LIMIT = 32700;
 export const WATER = 7;
 export const BIOMES = {
-  meadow: {name:'Meadowlands', color:0x769448, tree:0x486d39},
-  forest: {name:'Oldwood forest', color:0x476c3c, tree:0x274e34},
-  highlands: {name:'Stone highlands', color:0x8d9279, tree:0x445c49},
-  desert: {name:'Amber drylands', color:0xbba267, tree:0x6c7941},
-  tundra: {name:'Frostfell', color:0xb6c4b9, tree:0x46645c},
-  marsh: {name:'Willow marsh', color:0x617966, tree:0x3d6656},
+  meadow: {name:'Verdant basins', color:0x708d76, tree:0x486d39},
+  forest: {name:'Canopy belts', color:0x456f63, tree:0x274e34},
+  highlands: {name:'Basalt highlands', color:0x858c91, tree:0x445c49},
+  desert: {name:'Red dust flats', color:0xb3977e, tree:0x6c7941},
+  tundra: {name:'Frost plains', color:0xa9bbc3, tree:0x46645c},
+  marsh: {name:'Algal wetlands', color:0x628681, tree:0x3d6656},
 };
 export function hash(x,z,s=0) {
   let h=Math.imul(x|0,374761393)^Math.imul(z|0,668265263)^Math.imul(s+SEED,1274126177);
@@ -46,8 +46,8 @@ export function biomeAt(x,z) {
   if(temp<-.38)return 'tundra';if(h>65)return 'highlands';if(temp>.27&&moist<.05)return 'desert';
   if(waterDistance(x,z)<110&&moist>.05)return 'marsh';if(moist>.05)return 'forest';return 'meadow';
 }
-const namesA=['Ash','Briar','Elm','Raven','Willow','Oak','Moss','Stone','Fair','Reed','Alder','Thorn','Silver','Fox','Hazel','Pine'];
-const namesB=['ford','mere','wick','haven','stead','brook','hollow','bridge','crest','field','vale','fall'];
+const namesA=['Vesper','Latch','Ion','Rusted','Signal','Spool','Cinder','Dryline','Quiet','Hollow','Glass','Last','Static','Shard','Low','Drift'];
+const namesB=['Reach','Relay','Camp','Outpost','Haven','Station','Exchange','Landing','Terminal','Shelter','Yard','Anchor'];
 const settlementCache=new Map();
 export function settlement(rx,rz) {
   const id=`v:${rx}:${rz}`;if(settlementCache.has(id))return settlementCache.get(id);
@@ -56,7 +56,7 @@ export function settlement(rx,rz) {
     x=rx*REGION+150+hash(rx,rz,90+i*2)*724;z=rz*REGION+150+hash(rx,rz,91+i*2)*724;
     if(waterDistance(x,z)>125&&rawHeight(x,z)>11)break;
   }
-  const name=namesA[Math.floor(hash(rx,rz,75)*namesA.length)]+namesB[Math.floor(hash(rx,rz,76)*namesB.length)];
+  const name=namesA[Math.floor(hash(rx,rz,75)*namesA.length)]+' '+namesB[Math.floor(hash(rx,rz,76)*namesB.length)];
   const s={id,name,x,z,y:rawHeight(x,z),biome:biomeAt(x,z),rx,rz};
   settlementCache.set(id,s);return s;
 }
@@ -86,9 +86,9 @@ export function roadSegments(rx,rz) {
 export function roadDistance(x,z,segments) {let d=Infinity;for(const [a,b]of segments)d=Math.min(d,segDistance(x,z,a,b));return d;}
 export function npcsFor(s) {
  const first=['Mara','Orin','Elsbeth','Rowan','Asta','Tomas','Sable','Finn','Iona','Bram','Maeve','Hugo'];
- const people=['gatherer','keeper','wayfarer'].map((role,i)=>({id:`${s.id}:npc:${i}`,name:first[(Math.floor(hash(s.rx,s.rz,140)*first.length)+i*5)%first.length],role,village:s.name,x:s.x+[-12,14,3][i],z:s.z+[8,3,-17][i],y:s.y,home:s.id}));const smith=smithFor(s);if(smith)people.push(smith);return people;
+ const people=['gatherer','keeper','wayfarer'].map((role,i)=>({id:`${s.id}:npc:${i}`,name:first[(Math.floor(hash(s.rx,s.rz,140)*first.length)+i*5)%first.length],role,affiliation:['Independent Drifters','Round Power contract','Dugall Freight'][Math.floor(hash(s.rx,s.rz,8180+i)*3)],village:s.name,x:s.x+[-12,14,3][i],z:s.z+[8,3,-17][i],y:s.y,home:s.id}));const smith=smithFor(s);if(smith)people.push(smith);return people;
 }
-export function smithFor(s){if(hash(s.rx,s.rz,8150)<.25)return null;return {id:`${s.id}:npc:3`,name:['Bram','Orin','Asta','Hugo'][Math.floor(hash(s.rx,s.rz,8151)*4)],role:'smith',village:s.name,home:s.id,x:s.x-10,z:s.z-9,y:s.y,forgeX:s.x-18,forgeZ:s.z-9};}
+export function smithFor(s){if(hash(s.rx,s.rz,8150)<.25)return null;return {id:`${s.id}:npc:3`,name:['Bram','Orin','Asta','Hugo'][Math.floor(hash(s.rx,s.rz,8151)*4)],role:'smith',affiliation:'Independent Drifters',village:s.name,home:s.id,x:s.x-10,z:s.z-9,y:s.y,forgeX:s.x-18,forgeZ:s.z-9};}
 export function resourcesFor(cx,cz) {
  const nodes=[],roads=roadSegments(Math.floor(cx*CHUNK/REGION),Math.floor(cz*CHUNK/REGION));
  for(let i=0;i<44;i++){

@@ -26,6 +26,7 @@ test('persistent server preserves sessions and memory across restart, shares nod
  const blocked=await request('/api/world',{path:'action',revision:home.player.revision,action:{type:'move',...end}},auth.token);assert.equal(blocked.status,400);assert.match(blocked.error,/solid obstacle/);
  const collision=buildSurfaceCollisions([home.player,end],{homes:[h]}),route=findSurfacePath(home.player,end,(a,b)=>!collision.blocked(a,b));assert.ok(route?.length>1);
  const walked=await request('/api/world',{path:'action',revision:home.player.revision,action:{type:'move',...end,trail:route.slice(0,-1)}},auth.token);assert.equal(walked.status,200);assert.equal(walked.player.x,end.x);
+ const flight=await request('/api/world',{path:'action',revision:walked.player.revision,action:{type:'travel-planet',target:'planet:1:1'}},auth.token);assert.equal(flight.status,200);assert.equal(flight.player.arrivalVoucher,0);await stop();await start();const landed=await request('/api/world',{path:'state'},auth.token);assert.equal(landed.player.planet,'planet:1:1');assert.deepEqual(landed.player.visitedPlanets,flight.player.visitedPlanets);assert.equal(landed.player.equipped,forged.player.equipped);
  const unauthorized=await request('/api/world',{path:'state'});assert.equal(unauthorized.status,401);
  const secret=await fetch(base+'/evermere.sqlite');assert.equal(secret.status,404);
  }finally{if(process&&!process.killed)await stop();await rm(dir,{recursive:true,force:true});}

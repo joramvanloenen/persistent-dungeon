@@ -14,12 +14,12 @@ test('old saves gain action fields without replacing supplies, memories, or home
 });
 test('forge charges once, enforces heat timing, ruins overheated billets, and grants exactly one persistent weapon',()=>{
  const start=100000,p=kit(),recipe=WEAPONS[0];let q=validateAction(p,{type:'forge-start',target:smith.id,recipe:recipe.id},{now:start}).player;
- assert.equal(q.coins,p.coins-recipe.fee);assert.equal(q.inventory.iron,p.inventory.iron-recipe.iron);assert.throws(()=>validateAction(q,{type:'forge-start',target:smith.id,recipe:recipe.id}),/current billet/);
+ assert.equal(q.coins,p.coins-recipe.fee);assert.equal(q.inventory.iron,p.inventory.iron-recipe.iron);assert.throws(()=>validateAction(q,{type:'forge-start',target:smith.id,recipe:recipe.id}),/current blank/);
  assert.throws(()=>validateAction(q,{type:'forge-transfer'},{now:start+5000}),/cold/);q=validateAction(q,{type:'forge-transfer'},{now:start+12000}).player;assert.equal(q.forge.phase,'failed');q=validateAction(q,{type:'forge-retry'},{now:start+13000}).player;assert.equal(q.coins,p.coins-recipe.fee);
  let now=start+20000;q=validateAction(q,{type:'forge-transfer'},{now}).player;assert.equal(q.forge.phase,'hammer');
  const wrong=(forgeSpot(q.forge)+1)%9;q=validateAction(q,{type:'forge-strike',step:0,spot:wrong},{now:now+100}).player;assert.equal(q.forge.step,0);assert.equal(q.forge.mistakes,1);
  for(let i=0;i<recipe.hits;i++){now+=500;q=validateAction(q,{type:'forge-strike',step:q.forge.step,spot:forgeSpot(q.forge)},{now}).player;}
- assert.equal(q.forge,null);assert.equal(q.weapons.length,1);assert.equal(q.equipped,q.weapons[0].id);assert.throws(()=>validateAction(q,{type:'forge-strike',step:9,spot:0},{now:now+10}),/Pay the smith/);assert.throws(()=>validateAction({...p,x:smith.x+100},{type:'forge-start',target:smith.id,recipe:'dagger'}),/closer/);assert.throws(()=>validateAction({...p,coins:0},{type:'forge-start',target:smith.id,recipe:'dagger'}),/fee/);
+ assert.equal(q.forge,null);assert.equal(q.weapons.length,1);assert.equal(q.equipped,q.weapons[0].id);assert.throws(()=>validateAction(q,{type:'forge-strike',step:9,spot:0},{now:now+10}),/Pay the fabricator/);assert.throws(()=>validateAction({...p,x:smith.x+100},{type:'forge-start',target:smith.id,recipe:'dagger'}),/closer/);assert.throws(()=>validateAction({...p,coins:0},{type:'forge-start',target:smith.id,recipe:'dagger'}),/fee/);
 });
 test('hammer deadlines and stale strikes are enforced; three misses require reheating',()=>{
  let p=validateAction(kit(),{type:'forge-start',target:smith.id,recipe:'sword'},{now:100000}).player;p=validateAction(p,{type:'forge-transfer'},{now:107000}).player;p=validateAction(p,{type:'forge-strike',step:0,spot:forgeSpot(p.forge)},{now:107100}).player;assert.throws(()=>validateAction(p,{type:'forge-strike',step:0,spot:1},{now:107200}),/earlier/);

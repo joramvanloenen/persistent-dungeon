@@ -3,7 +3,7 @@
 <head>
  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
  <title>Evermere · minimap camera alignment</title>
- <link rel="stylesheet" href="../style.css?v=6">
+ <link rel="stylesheet" href="../style.css?v=9">
  <style>body{overflow:auto;padding:24px;margin:0}main{max-width:540px;margin:auto}h1{font-size:22px}p{font-size:13px;line-height:1.6;color:var(--muted)}label{display:flex;align-items:center;gap:12px;margin:20px 0}select{min-height:44px;padding:8px}.maps{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:18px}figure{margin:0;padding:12px;background:var(--field);border:1px solid var(--line)}canvas{display:block;width:100%;aspect-ratio:1}figcaption{font-size:12px;margin-top:10px}h2{font-size:14px;margin:0 0 12px}output{display:block;margin:18px 0;font-size:13px;color:var(--teal)}</style>
 </head>
 <body><main>
@@ -18,9 +18,9 @@
  </div><output id="bearing" aria-live="polite"></output>
  <p>This preview uses the game’s minimap renderer and does not change a traveler save.</p>
 </main><script type="module">
- import {drawMiniMap} from '../src/map.js?v=6';
- import {createPlayer} from '../src/rules.js?v=6';
- import {generateDungeon} from '../src/dungeons.js?v=2';
+ import {drawMiniMap} from '../src/map.js?v=9';
+ import {createPlayer} from '../src/rules.js?v=9';
+ import {generateDungeon} from '../src/dungeons.js?v=9';
  const p=createPlayer('minimap-preview','Ada'),cave=generateDungeon(-2,3),underground={...p,dungeon:{id:cave.id,...cave.spawn}},$=id=>document.getElementById(id);
  drawMiniMap($('surface-reference'),p,{heading:Math.PI});drawMiniMap($('cave-reference'),underground,{cave,heading:Math.PI});
  function redraw(){const cameraYaw=Number($('direction').value)*Math.PI/180;drawMiniMap($('surface-camera'),p,{heading:Math.PI,cameraYaw});drawMiniMap($('cave-camera'),underground,{cave,heading:Math.PI,cameraYaw});$('bearing').textContent='Camera forward: '+$('direction').selectedOptions[0].textContent+' · terrain and north marker follow the camera.';}

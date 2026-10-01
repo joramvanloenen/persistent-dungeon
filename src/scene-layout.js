@@ -1,5 +1,5 @@
-import {CHUNK,BIOMES,hash,biomeAt,heightAt,waterDistance,roadDistance,roadSegments,nearestSettlement,smithFor} from './world.js?v=6';
-import {ruinFor,TILE} from './dungeons.js?v=2';
+import {CHUNK,BIOMES,hash,biomeAt,heightAt,waterDistance,roadDistance,roadSegments,nearestSettlement,smithFor} from './world.js?v=9';
+import {ruinFor,TILE} from './dungeons.js?v=9';
 
 // These placements also drive collisions. Keep the existing village layout and seed.
 export function villageHouses(s){return Array.from({length:7},(_,i)=>{const angle=i*Math.PI*2/7,r=27+hash(s.rx,s.rz,1700+i)*8;return {id:`${s.id}:house:${i}`,x:s.x+Math.cos(angle)*r,z:s.z+Math.sin(angle)*r,y:s.y,rotation:-angle+Math.PI/2,width:7+hash(s.rx,s.rz,1800+i)*3,depth:7+hash(s.rx,s.rz,1900+i)*4};});}
@@ -7,7 +7,7 @@ export const circle=(id,x,z,radius)=>({id,x,z,radius});
 export const box=(id,x,z,width,depth,rotation=0)=>({id,x,z,width,depth,rotation});
 function offset(h,x,z){const c=Math.cos(h.rotation),s=Math.sin(h.rotation);return {x:h.x+c*x+s*z,z:h.z-s*x+c*z};}
 export function homeObstacles(h){const out=[box(h.id,h.x,h.z,9,8,h.rotation)];for(const x of [-4.7,4.7]){const p=offset(h,x,6.2);out.push(box(`${h.id}:fence:${x}`,p.x,p.z,.25,6,h.rotation));}const p=offset(h,-5.8,0);out.push(box(`${h.id}:crate`,p.x,p.z,1.4,1.4,h.rotation));return out;}
-export function villageObstacles(s){const out=villageHouses(s).map(h=>box(h.id,h.x,h.z,h.width,h.depth,h.rotation));out.push(circle(`${s.id}:well`,s.x,s.z-1,2),box(`${s.id}:dummy`,s.x+13,s.z-11,1.1,1));const n=smithFor(s);if(n)out.push(box(`${s.id}:forge`,n.forgeX,n.forgeZ,5,4),box(`${s.id}:anvil`,n.forgeX+4,n.forgeZ+1,2.5,1.1));return out;}
+export function villageObstacles(s){const out=villageHouses(s).map(h=>box(h.id,h.x,h.z,h.width,h.depth,h.rotation));out.push(box(`${s.id}:shuttle`,s.x,s.z+13,12,10),circle(`${s.id}:well`,s.x,s.z-1,2),box(`${s.id}:dummy`,s.x+13,s.z-11,1.1,1));const n=smithFor(s);if(n)out.push(box(`${s.id}:forge`,n.forgeX,n.forgeZ,5,4),box(`${s.id}:anvil`,n.forgeX+4,n.forgeZ+1,2.5,1.1));return out;}
 export function ruinRubble(r){return Array.from({length:7},(_,i)=>{let angle=i*2.1;const rad=8+hash(r.rx,r.rz,4700+i)*6;if(Math.abs(Math.sin(angle)*rad)<3.5&&Math.cos(angle)>0)angle+=.55;return {id:`${r.id}:rock:${i}`,x:r.x+Math.sin(angle)*rad,z:r.z+Math.cos(angle)*rad};});}
 export function ruinObstacles(r){const out=[box(`${r.id}:left`,r.x-3,r.z,1.4,1.6),box(`${r.id}:right`,r.x+3,r.z,1.4,1.6),box(`${r.id}:back`,r.x,r.z-.25,4.6,.5)];for(const n of ruinRubble(r))out.push(circle(n.id,n.x,n.z,1.65));for(const x of [-7,7])out.push(box(`${r.id}:pillar:${x}`,r.x+x,r.z-5,1.1,1.1));return out;}
 export function resourceObstacle(n){if(n.kind==='wood')return circle(n.id,n.x,n.z,.5*n.scale);if(n.kind==='stone')return circle(n.id,n.x,n.z,1.2*n.scale);return null;}

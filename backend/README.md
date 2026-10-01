@@ -47,3 +47,11 @@ Back up the database. Static source in GitHub is not a backup of live world data
 ## Collision update
 
 Deploy the updated shared source and restart Node, or redeploy the Supabase `world` function. Movement validation now checks surface obstacle footprints and the entire saved trail, using nearby database homes and depleted resources. No schema migration is needed for this update.
+
+## The Fringe genre conversion
+
+Deploy the updated shared `src/` code and restart the Node server, or redeploy the Supabase `world` function. No new SQL migration is required. Existing seed, IDs, inventory keys, homes, account tokens, and conversation rows stay compatible. Known medieval weapons acquire sci-fi display names while retaining their IDs and stats.
+
+Player JSON now includes `planet`, `visitedPlanets`, a one-use `arrivalVoucher`, landing metadata, and `inventory.powerballs`. Planet transit validates a colony/pod departure point, unfinished fabrication, and the selected fare (four credits or one Powerball after the voucher). Refining/trading validates proximity and inventory. All use the existing transactional action/event path, so the backend owns payment, discoveries, and resource claims. Surfaces occupy nine bounded regions in the existing seeded coordinate space. Players always start each session at their original landing pod; discovered planets remain remembered.
+
+The field guide and NPC topic replies use the supplied Fringe history. Player messages remain stored verbatim; this update does not replace the NPC memory system or introduce an LLM.

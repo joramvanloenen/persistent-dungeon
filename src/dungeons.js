@@ -1,12 +1,12 @@
-import {hash,settlement,heightAt,waterDistance,roadDistance,roadSegments,REGION,LIMIT} from './world.js';
+import {hash,settlement,heightAt,waterDistance,roadDistance,roadSegments,REGION,LIMIT} from './world.js?v=9';
 export const TILE=2.8;
 const cache=new Map(),ruinCache=new Map();
 export function dungeonId(rx,rz){return `d:${rx}:${rz}`;}
 export function ruinFor(rx,rz){
  const key=dungeonId(rx,rz);if(ruinCache.has(key))return ruinCache.get(key);const s=settlement(rx,rz);let x,z;
  for(let i=0;i<80;i++){const angle=hash(rx,rz,2400+i)*Math.PI*2,r=165+hash(rx,rz,2500+i)*95;x=s.x+Math.cos(angle)*r;z=s.z+Math.sin(angle)*r;if(waterDistance(x,z)>65&&roadDistance(x,z,roadSegments(rx,rz))>16)break;}
- const styles=['Rootbound Catacombs','The Sunken Sanctum','The Forgotten Vault'];
- const result={id:dungeonId(rx,rz),name:`${s.name} ${['Barrow','Ruins','Sanctum'][Math.floor(hash(rx,rz,2600)*3)]}`,dungeonName:styles[Math.floor(hash(rx,rz,2601)*3)],x,z,y:heightAt(x,z),rx,rz,style:Math.floor(hash(rx,rz,2601)*3)};ruinCache.set(key,result);return result;
+ const styles=['Buried processing complex','Flooded research annex','Freight Wars bunker'];
+ const result={id:dungeonId(rx,rz),name:`${s.name} ${['Decommissioned Site','Industrial Relic','Sealed Facility'][Math.floor(hash(rx,rz,2600)*3)]}`,dungeonName:styles[Math.floor(hash(rx,rz,2601)*3)],x,z,y:heightAt(x,z),rx,rz,style:Math.floor(hash(rx,rz,2601)*3)};ruinCache.set(key,result);return result;
 }
 export function resolveDungeon(id){const m=/^d:(-?\d+):(-?\d+)$/.exec(String(id));if(!m||Math.abs(+m[1]*REGION)>LIMIT||Math.abs(+m[2]*REGION)>LIMIT)return null;return generateDungeon(+m[1],+m[2]);}
 export function generateDungeon(rx,rz){
@@ -17,7 +17,7 @@ export function generateDungeon(rx,rz){
  for(let i=0;i<count;i++){
   const col=i%4,row=Math.floor(i/4),w=9+Math.floor(hash(rx,rz,2800+i)*6),h=9+Math.floor(hash(rx,rz,2900+i)*6);
   const x=5+col*20+Math.floor(hash(rx,rz,3000+i)*3),z=5+row*20+Math.floor(hash(rx,rz,3100+i)*3);
-  const room={id:i,x,z,w,h,cx:x+Math.floor(w/2),cz:z+Math.floor(h/2),name:i===0?'The Threshold':['Hall of Roots','Broken Chapel','Mineral Grotto','Old Storehouse','Sealed Reliquary','Silent Gallery','Deep Cistern'][Math.floor(hash(rx,rz,3200+i)*7)]};rooms.push(room);paintRoom(room);
+  const room={id:i,x,z,w,h,cx:x+Math.floor(w/2),cz:z+Math.floor(h/2),name:i===0?'Access lock':['Reactor hall','Transit control','Extraction chamber','Cargo hold','Quarantine bay','Service gallery','Cooling reservoir'][Math.floor(hash(rx,rz,3200+i)*7)]};rooms.push(room);paintRoom(room);
  }
  const edges=[];
  function connect(a,b,variant){const ax=a.cx,az=a.cz,bx=b.cx,bz=b.cz,mx=variant?bx:ax,mz=variant?az:bz;const line=(x0,z0,x1,z1)=>{const n=Math.max(Math.abs(x1-x0),Math.abs(z1-z0));for(let i=0;i<=n;i++){const x=Math.round(x0+(x1-x0)*i/Math.max(1,n)),z=Math.round(z0+(z1-z0)*i/Math.max(1,n));for(let dx=-1;dx<=1;dx++)for(let dz=-1;dz<=1;dz++)carve(x+dx,z+dz);}};line(ax,az,mx,mz);line(mx,mz,bx,bz);edges.push([a.id,b.id]);}
@@ -25,7 +25,7 @@ export function generateDungeon(rx,rz){
  for(let i=1;i<rooms.length-1;i++)if(hash(rx,rz,3400+i)>.6)connect(rooms[i],rooms[i+1],hash(rx,rz,3450+i)>.5);
  const nodes=[];for(const room of rooms){const n=3+Math.floor(hash(rx,rz,3500+room.id)*3);for(let j=0;j<n;j++){
   const x=(room.x+2+hash(rx,rz,3600+room.id*13+j)*(room.w-4))*TILE,z=(room.z+2+hash(rx,rz,3800+room.id*13+j)*(room.h-4))*TILE;
-  const kind=['stone','wood','fiber','berries'][(j+room.id)%4];nodes.push({id:`c:${rx}:${rz}:${nodes.length}`,space:id,x,z,y:0,kind,label:{stone:'mineral deposit',wood:'old timber',fiber:'woven supplies',berries:'dried provisions'}[kind],room:room.id,count:kind==='stone'?5:kind==='wood'?4:3,scale:.9+hash(rx,rz,4000+nodes.length)*.35});
+  const kind=['stone','wood','fiber','berries'][(j+room.id)%4];nodes.push({id:`c:${rx}:${rz}:${nodes.length}`,space:id,x,z,y:0,kind,label:{stone:'silicate deposit',wood:'structural biomass',fiber:'biofilament stores',berries:'sealed nutrient pods'}[kind],room:room.id,count:kind==='stone'?5:kind==='wood'?4:3,scale:.9+hash(rx,rz,4000+nodes.length)*.35});
  }}
  const entrance={x:rooms[0].cx*TILE,z:(rooms[0].z+2)*TILE},spawn={x:entrance.x,z:entrance.z+5.6};
  const dungeon={...ruinFor(rx,rz),width,height,cells,rooms,edges,nodes,entrance,spawn};cache.set(id,dungeon);return dungeon;

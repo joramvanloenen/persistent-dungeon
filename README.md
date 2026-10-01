@@ -1,99 +1,55 @@
-# Persistent Dungeon · Evermere
+# The Fringe · Drifter
 
-A browser survival/exploration game with a streamed, procedural 3D medieval wilderness.
+A browser survival and exploration game set on remote, procedurally generated planetary surfaces colonized by Drifters. Play at https://joramvanloenen.github.io/persistent-dungeon/.
 
-**Play:** https://joramvanloenen.github.io/persistent-dungeon/
+## The frontier
 
-## First version
+The setting follows the supplied Fringe history: unincorporated systems beyond Beshtala-Chanko's public transit routes, the Powerball boom, Round Power Corporation, Dugall Freight, Man Earlie's fragmented army, the Freight Wars and Feigngull Massacre, and Klem Earlie's decision to end the attacks. A field guide preserves these subjects in eight readable chapters. Drifters can explain them in conversation while retaining the exact information players tell them. Drifter colony life and the game's planetary destinations are additions to that setting.
 
-- 65.4 × 65.4 km seeded terrain, hills and valleys, six biomes, rivers and lake basins.
-- Thousands of deterministic settlements connected by roads and timber bridges.
-- Random village spawn, click/tap movement, WASD, movable camera, minimap and waypoint atlas.
-- Wood, stone, berries, fiber, inventory, relaxed hunger/thirst, wells and village rest.
-- Stable NPC identities, full saved conversations, searchable memory and information shared between travelers.
-- Persistent event log and authoritative resource claims/revision checks when connected to the backend.
-- Mobile support and a lower rendering quality option.
+## Play
 
-## Important: persistence status
+- Start at your own landing pod in a randomly assigned Drifter colony. Each player receives a separate home plot; every new session returns you to that pod.
+- Explore nine planetary survey regions, each roughly 16 km across, with seeded hills, valleys, six biomes, rivers, lakes, service tracks, and colonies. These regions reuse the original world coordinate space to preserve existing identifiers and saves. Transit changes your active planetary surface; walking cannot cross its survey boundary. This version does not simulate spaceflight.
+- Open **Map → Planet transit**, settings, or press **G** near a colony or your pod. Unvisited planets appear as unknown colony beacons. Your first Dugall trip uses an arrival voucher; later trips cost four credits or one Powerball. Landing reveals the destination's name and adds it to saved discoveries.
+- Recover biomass, silicate, nutrient pods, biofilament, and alloy fragments. Some mineral deposits contain visible glowing Powerballs. A fabricator can refine one from two silicate and one alloy fragment, or buy one for twelve credits. Use recyclers or filtered river water, and rest in colonies or at your pod.
+- Investigate decommissioned facilities, freight bunkers, and research annexes. Connected rooms and corridors contain cargo and security automatons. Entrance icons separately track exploration and recovered supplies. Collected resources and defeated security remain saved.
+- Meet scavengers, colony stewards, freight runners, and fabricators with independent Drifter, Round Power, or Dugall affiliations. Conversation shows the current RPG line; past exchanges are available only through **Conversation journal**.
 
-The default Pages build is a **local preview** until a backend is configured. It saves in the browser, offers export/import, and clearly shows that shared saves are not connected. GitHub Pages cannot run a database.
+## Movement, equipment, and fabrication
 
-The complete Supabase backend and alternative Node/SQLite server are included. Follow [backend setup](backend/README.md) to enable account saves across devices, shared resource depletion, other travelers, and shared NPC memories. All live player data remain in that database, not this repository.
+Click/tap ground to walk, or use WASD/arrows. Hold **Shift** to run, **Space** to jump, **F** to attack with an equipped weapon, **E** to interact, **I** for cargo, and **M** for the surface map. Drag to orbit horizontally and vertically; scroll/pinch to zoom. Camera elevation is bounded, and the minimap follows camera forward. Mobile has separated Run, Jump, and Attack controls and dialog layouts that adapt to the keyboard.
 
-NPC replies currently use a transparent, deterministic memory and keyword system. Every successful message is stored verbatim; replies can recall it. This version does not call an LLM. Building is not implemented yet; equipped weapons, attacks, and dungeon sentinels are available.
+Most colonies have an induction fabrication bay. Approach its fabricator for the weapon catalog: **Vibroknife** (10 strikes), **Arc blade** (14), or **Breacher axe** (16). Pay the bay rental and materials once, heat an alloy blank for 6–9 seconds until orange, then transfer it to the forming press. Overheating ruins the blank. Hit each highlighted press square within two seconds; three mistakes require reheating. Replacement blanks are included in the rental. Completed equipment and unfinished jobs persist. Calibration rigs let you practice; defeated security units yield credits and alloy.
+
+Habitat pods, modular housing, freight shuttles, recyclers, fabrication equipment, access locks, rocks, and tree trunks have collision footprints. Running uses swept movement; click navigation routes around obstacles. The supplied tree PNGs remain unchanged, face the camera around world Y, and stay between 13 and 14.5 units tall. Grasses and bushes remain soft.
+
+## Persistence status and compatibility
+
+The public Pages build is a **local preview until a backend is configured**. It saves in the browser and supports export/import. GitHub Pages cannot run a database. [Backend setup](backend/README.md) explains how to enable account saves across devices, globally depleted resources, other players, and shared NPC memories through Supabase or Node/SQLite.
+
+NPC replies use deterministic authored dialogue and memory matching, not an LLM. Every successful message is stored verbatim and can be recalled, including information from other players in a configured shared world. Building is not implemented yet.
+
+The genre conversion preserves the original seed, resource/NPC/home/facility IDs, inventory keys, account storage, save format, and weapon IDs/stats. Original equipment receives sci-fi names; cargo, pod ownership, conversations, exploration, and paid jobs survive. Credits retain the internal `coins` field and Powerballs add `inventory.powerballs`. New fields include `planet`, `visitedPlanets`, `arrivalVoucher`, and `landing`. No save reset is needed.
 
 ## Run and test
 
-Serve the root folder with any static server, e.g. `python3 -m http.server 8080`, then open `http://localhost:8080`. No installation/build is needed. JavaScript modules must be served over HTTP.
+Serve the root with `python3 -m http.server 8080`, then open http://localhost:8080. No build or package installation is needed. Run `npm test` (Node 22.13+ for SQLite tests).
 
-`node --test tests/*.test.mjs` runs generation, action validation, persistence, concurrency, and archived NPC recall checks. Node 22.13+ is needed for the SQLite backend.
+The 38 tests cover generation, migration, local and server reloads, shared resource claims and stale revisions, exact NPC recall, connected facilities, camera/minimap behavior, collisions, foliage, combat, fabrication timing, transit fares and restrictions, all nine safe landing points, and saved planetary discoveries.
+
+`dev/fringe-preview.html` is a disposable UI playtest using the real transit, fabrication, and conversation rules in memory. It includes desktop and 320/390 px phone layouts and a visible control audit. It does not load WebGL or change a traveler save. Other `dev/` previews exercise dialogue layout, camera-oriented minimaps, and fabrication timing.
 
 ## Architecture
 
-- `src/world.js`: immutable seed, versioned generation, settlement/resource/NPC IDs.
-- `src/render.js`: Three.js chunk streaming, terrain, water, bridges, settlements, vegetation and camera.
-- `src/rules.js`: shared gameplay validation and NPC recall.
-- `src/storage.js`: local preview, Supabase Edge Function, or self-hosted server adapter.
-- `src/main.js`, `src/map.js`: game UI and maps.
-- `backend/schema.sql`, `supabase/functions/world/index.ts`: transactional production backend.
-- `backend/server.mjs`: self-hosted SQLite alternative with accounts.
+- `src/world.js`: stable seeded terrain, resources, colonies, and NPCs.
+- `src/planets.js`, `src/fringe-lore.js`: survey destinations, validated transit, and canonical history.
+- `src/rules.js`, `src/action-game.js`: shared validated state changes and recall.
+- `src/render.js`, `src/dungeon-render.js`: Three.js surface streaming and industrial facilities.
+- `src/scene-layout.js`, `src/world-collision.js`: shared obstacle placement and swept movement.
+- `src/foliage-billboards.js`: batched, Y-locked camera-facing painted foliage.
+- `src/main.js`, `src/map.js`, `src/forge-ui.js`, `src/fringe-ui.js`: controls, survey, fabrication, transit, and archive UI.
+- `src/storage.js`: local preview or configured backend adapter.
+- `backend/server.mjs`: Node/SQLite accounts and durable state.
+- `backend/schema.sql`, `supabase/functions/world/index.ts`: transactional Supabase backend.
 
-New permanent mechanics should add validated actions, atomic state changes, and append-only events. Preserve existing seed and identifiers. Building can add an indexed world-structures table and a `build` action without replacing player saves.
-
-Three.js is bundled locally under its MIT license. Supabase client is bundled for the optional cloud connection.
-
-GitHub Pages is configured to publish the root of `main`; the root `index.html` and relative asset paths support the repository subpath. `.nojekyll` keeps module files unmodified. No deployment workflow is required.
-
-## Expansion: homes, ruins, and dungeons
-
-Every player now receives a new, individually owned cottage on a vacant village plot. Existing saves gain a home while preserving supplies and all NPC conversations. Every page load/sign-in starts the traveler at their own doorstep; leaving a dungeon during the session returns to its entrance. Dungeon exploration and collected supplies remain saved even when the traveler returns home.
-
-Ancient ruins appear near settlements and on the atlas as diamonds. Approach an arch to choose whether to enter. The cave marker shows two separate states: hollow/filled diamond for unexplored/entered (check when all chambers are visited), and a supply mark (check when all deposits have been gathered). Dungeons contain 9–12 connected chambers, branching corridors, mineral deposits, timber, cloth, dried provisions, and stairs back to the surface. Click movement finds a walkable path through corridors. The dungeon atlas shows the connected floor plan, with unexplored chambers dimmed and explored chambers highlighted. The underground minimap follows the traveler at a closer scale.
-
-NPC conversation now shows only the current RPG dialogue line and topic choices. Past exchanges are available only through **Conversation journal**, with earlier pages available on demand. Replies still use persistent memory and authored dialogue rules rather than an LLM.
-
-The expansion adds biome-specific broadleaf trees and conifers, bushes, grass, flowers, reeds, personal gardens, denser scenery, correct backpack orientation, and less distant fog when zooming out.
-
-For an already configured Supabase backend, run the new `Expansion v2` section at the end of `backend/schema.sql` and redeploy the `world` function. For the SQLite backend, restart the updated server; it adds the new homes and resource-space schema without removing existing data. The public Pages build remains a local preview until that shared backend is connected.
-
-## Interface and camera update
-
-The UI uses flat cream panels, square controls, consistent line icons, teal actions, and coral/plum status accents. Drag horizontally to orbit and vertically to change elevation. Elevation stays between 18° and 70° above the horizon (32°–70° underground). The camera interpolates angles around the traveler rather than crossing through the orbit center. World labels use the current camera matrix on every frame.
-
-Surface minimaps scroll using cached terrain; the marker stays centered as the traveler walks. Dungeon lighting and fog are adjusted for the closer camera. Regression tests exercise the full dungeon scene transition, rendered-floor connectivity, extreme camera input, minimap scrolling, and save preservation.
-
-Minimaps also rotate with the camera's smoothed yaw, including when turning in place. Camera forward is always at the top; the north marker travels around the edge and the player arrow shows facing relative to the camera. The surface terrain cache includes the diagonal crop needed for rotation, and dungeon floors use the same orientation. `dev/minimap-preview.html` compares north-up references with camera views without changing saves.
-
-`dev/ui-preview.html` provides desktop and phone UI fixtures without loading WebGL or touching a traveler save. This is a development preview, not a gameplay session.
-
-![Flat interface and RPG dialogue fixture](docs/interface-preview-20260930.jpg)
-
-## Mobile dialogue and controls
-
-Phone controls have at least 44 × 44 px touch targets and 8 px between adjacent controls. The action dock stacks into separate rows, with the minimap and notices following its actual height. Dialogs follow the visible viewport when the keyboard opens, and the field HUD is hidden while a dialog is active.
-
-NPC speech is the main visual focus, followed by clearly grouped reply choices. **Say something else** expands the custom reply form only when needed; **Conversation journal** remains a secondary action in the footer. Existing conversation memories and saves are unchanged.
-
-The development preview includes 320, 360, 390, and 430 px phone layouts, a keyboard-sized viewport, and a live overlap/touch-target audit. Layout checks and all 17 automated regression tests pass.
-
-![Mobile dialogue fixture](docs/mobile-dialogue-20260930.jpg)
-
-## Action and the town forge
-
-Hold **Shift** to run, press **Space** to jump, and **F** to swing an equipped weapon. Touch screens have Run, Jump, and Attack buttons. Running and jumping use regenerating stamina; running distance, jumps, and attacks are recorded. Jumping can evade a sentinel's counterattack. Village practice dummies let you try a new weapon; dungeon stone sentinels drop coins and iron ore when defeated. Defeated sentinels remain defeated for that traveler. If overwhelmed, the traveler wakes at home with their supplies.
-
-Most towns have a smith and a visible furnace/anvil. The atlas marks those towns with a hammer. Approach the smith to open the crafting catalog: iron dagger (10 strikes), short sword (14), and iron axe (16). New and existing travelers receive 24 starting coins once. Gather stone/mineral deposits for iron ore, buy material bundles, or sell spare wood, stone, and fiber to the smith.
-
-Each job consumes the displayed coin fee, ore, and wood. Heat the billet for 6–9 seconds until it glows orange, then transfer it to the anvil. Overheating makes it spark, fizzle, and break apart. Strike the highlighted square within 2 seconds; a missed or wrong strike loses progress, and three misses require heating again. Replacement billets are included in the paid session. Completed weapons are saved and equipped automatically; the satchel can switch equipment. Paid jobs and their timing also survive reloads. Abandoning consumes the paid fee and materials.
-
-The action rules run in local, Node/SQLite, and Supabase modes. Configured servers need the updated source; Supabase also needs the updated `apply_game_action` function from `backend/schema.sql` for its gameplay rate limit. No new tables are needed. The public Pages version retains its existing local-preview save mode until a shared backend is configured.
-
-`dev/forge-preview.html` is a disposable UI playtest using the real crafting rules, with a heating-time advance button. It never writes a traveler save. Automated checks cover save migration, forging windows and penalties, duplicate completion, combat reach/cooldowns, jump physics, rendered equipment, and local/server reload persistence.
-
-## Collision and painted foliage update
-
-- Village houses and player cottages use rotated building footprints, including cottage fences and crates. Wells, smith furnaces/anvils, ruin masonry, rocks, and tree trunks block movement. Bushes and grasses remain soft. Gathered trees and rocks stop blocking the path.
-- Substepped swept movement prevents running through thin obstacles and slides along edges. Click/tap movement finds a route around props; clicking a solid object approaches nearby open ground. Movement trails retain collision-safe turns when saved.
-- Dungeon pillars, braziers, altars, rubble, and supply containers also block walking. Stairs and interactions remain reachable.
-- Collectible and decorative trees use `assets/foliage/tree-broad.png` and `tree-tall.png`, copied unchanged from the supplied images. Grass, berry bushes, flowers, and cottage gardens also use billboards. All sprites rotate around world Y with their roots anchored to the terrain; camera pitch never tilts them. Instanced shader rotation avoids per-tree updates on phones.
-- Shared movement validation enforces surface collisions using the same placements and nearby persisted homes/resource depletion. Existing seed, resource IDs, homes, inventory, forge jobs, and NPC memories stay intact.
+Permanent mechanics should use validated actions, atomic state updates, and append-only events. Preserve the seed and identifiers when adding construction or new planetary systems. Three.js and the optional Supabase client are bundled locally under their licenses. Pages publishes the root of `main` with relative asset paths and `.nojekyll`.

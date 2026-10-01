@@ -1,25 +1,25 @@
-/* Flat field-kit interface. Palette follows the supplied UI reference. */
+/* Drifter field terminal: flat industrial panels, clear type, and restrained accents. */
 :root {
   color-scheme: light;
-  --ink: #41443b;
-  --muted: #67695d;
-  --paper: #eeeddc;
-  --field: #e2e0cb;
-  --white: #faf9f0;
-  --line: #bebfab;
-  --teal: #087d79;
-  --teal-hover: #066b68;
-  --coral: #c83d5b;
-  --plum: #735078;
-  --amber: #ffb23e;
+  --ink: #263f4e;
+  --muted: #5a7180;
+  --paper: #e1e8e8;
+  --field: #cad6d7;
+  --white: #f2f5f2;
+  --line: #99adb6;
+  --teal: #306c7b;
+  --teal-hover: #255866;
+  --coral: #b75651;
+  --plum: #4b687f;
+  --amber: #c79c59;
   --edge: 0 2px 0 #333a3d30;
   font: 15px/1.45 'Segoe UI', Arial, sans-serif;
   color: var(--ink);
 }
 * { box-sizing: border-box; }
-body { margin: 0; overflow: hidden; background: #405846; }
+body { margin: 0; overflow: hidden; background: #263d49; }
 [hidden] { display: none !important; }
-button, input, textarea, .button { font: inherit; }
+button, input, textarea, select, .button { font: inherit; }
 button, .button {
   display: inline-flex;
   align-items: center;
@@ -36,21 +36,21 @@ button, .button {
   text-decoration: none;
   transition: background-color 120ms;
 }
-button:hover, .button:hover { background: #d3d2bc; }
+button:hover, .button:hover { background: #b5c8cd; }
 button:active, .button:active { box-shadow: none; transform: translateY(1px); }
-button:disabled { background: #e0decb; border-color: #cccebc; color: #77796d; cursor: default; box-shadow: none; transform: none; }
-button:focus-visible, .button:focus-visible, input:focus-visible, textarea:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
-input, textarea {
+button:disabled { background: #d4dfe0; border-color: #b7c7cd; color: #697e85; cursor: default; box-shadow: none; transform: none; }
+button:focus-visible, .button:focus-visible, input:focus-visible, textarea:focus-visible, select:focus-visible { outline: 2px solid var(--teal); outline-offset: 3px; }
+input, textarea, select {
   width: 100%;
   border: 1px solid var(--line);
   border-radius: 2px;
   padding: 10px 12px;
   color: var(--ink);
   background: var(--white);
-  box-shadow: inset 0 2px 0 #41443b0b;
+  box-shadow: inset 0 2px 0 #263f4e0b;
   font-size: 16px;
 }
-input::placeholder, textarea::placeholder { color: #76796a; opacity: 1; }
+input::placeholder, textarea::placeholder { color: #6d8189; opacity: 1; }
 label { display: block; margin: 18px 0 6px; font-size: 13px; font-weight: 600; }
 h1, h2, h3, p { margin: 0; }
 h2 { font-size: 26px; line-height: 1.2; font-weight: 600; margin: 5px 0 18px; }
@@ -81,14 +81,14 @@ kbd { font: 11px/1.3 'Segoe UI', Arial, sans-serif; border: 1px solid currentCol
 .vitals > div:nth-child(2) { color: #966518; --meter-color: var(--amber); }
 .vitals > div:nth-child(3) { color: var(--teal); --meter-color: var(--teal); }
 .vitals small { grid-column: 2; grid-row: 1; font-size: 11px; color: var(--muted); }
-.vitals meter { grid-column: 2; grid-row: 2; width: 70px; height: 6px; appearance: none; border: 0; border-radius: 0; background: #d0d1bc; overflow: hidden; }
-.vitals meter::-webkit-meter-bar { background: #d0d1bc; border: 0; border-radius: 0; }
+.vitals meter { grid-column: 2; grid-row: 2; width: 70px; height: 6px; appearance: none; border: 0; border-radius: 0; background: #b7c7cd; overflow: hidden; }
+.vitals meter::-webkit-meter-bar { background: #b7c7cd; border: 0; border-radius: 0; }
 .vitals meter::-webkit-meter-optimum-value, .vitals meter::-webkit-meter-suboptimum-value, .vitals meter::-webkit-meter-even-less-good-value { background: var(--meter-color); border-radius: 0; }
 .vitals meter::-moz-meter-bar { background: var(--meter-color); }
 .compass { position: absolute; top: 88px; right: 27px; display: flex; flex-direction: column; align-items: center; color: #fff; font-size: 12px; text-shadow: 0 1px 2px #253b2b; }
 .compass span { font-size: 24px; line-height: 1.2; }
 .mini-wrap { position: absolute; right: 20px; bottom: 112px; width: 164px; padding: 6px; background: var(--paper); border: 1px solid var(--line); border-radius: 2px; box-shadow: var(--edge); }
-.mini-wrap canvas { display: block; width: 100%; border: 1px solid #8b9980; }
+.mini-wrap canvas { display: block; width: 100%; border: 1px solid #809da5; }
 .mini-wrap > div { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 8px 4px 3px; }
 .mini-wrap span { font-size: 12px; font-weight: 600; }
 .mini-wrap small { font-size: 10px; color: var(--muted); font-variant-numeric: tabular-nums; }
@@ -113,8 +113,8 @@ kbd { font: 11px/1.3 'Segoe UI', Arial, sans-serif; border: 1px solid currentCol
 .cover-mark { display: grid; place-items: center; width: 70px; height: 70px; font-size: 46px; background: var(--teal); color: #fff; margin-bottom: 18px; }
 .cover h2 { font-size: 24px; margin: 0 0 8px; }
 .cover p { color: var(--muted); font-size: 13px; }
-.dialog { color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-top: 6px solid var(--teal); border-radius: 2px; padding: 26px; width: min(480px,calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; box-shadow: 0 4px 0 #26342c25; scrollbar-color: #a9ac98 var(--field); }
-.dialog::backdrop { background: #203127bb; }
+.dialog { color: var(--ink); background: var(--paper); border: 1px solid var(--line); border-top: 6px solid var(--teal); border-radius: 2px; padding: 26px; width: min(480px,calc(100vw - 32px)); max-height: calc(100dvh - 32px); overflow: auto; box-shadow: 0 4px 0 #26342c25; scrollbar-color: #8ca6b2 var(--field); }
+.dialog::backdrop { background: #142c3bcc; }
 .dialog .close { position: absolute; top: 10px; right: 10px; padding: 0; width: 32px; min-height: 32px; font-size: 24px; font-weight: 400; line-height: 1; border: 0; background: var(--field); box-shadow: none; color: var(--muted); }
 .dialog .close:hover { background: var(--coral); color: white; }
 .eyebrow { font-size: 11px; font-weight: 600; letter-spacing: .06em; text-transform: uppercase; color: var(--teal); margin: 0; padding-right: 34px; }
@@ -139,7 +139,7 @@ kbd { font: 11px/1.3 'Segoe UI', Arial, sans-serif; border: 1px solid currentCol
 .map-tools { display: flex; align-items: center; gap: 6px; margin-bottom: 12px; flex-wrap: wrap; }
 .map-tools button { padding: 7px 12px; min-height: 36px; font-size: 13px; }
 .map-tools span { flex: 1; font-size: 12px; color: var(--muted); font-variant-numeric: tabular-nums; }
-.map-dialog canvas { width: 100%; max-height: 55dvh; object-fit: contain; display: block; background: #435548; border: 1px solid #8b9980; cursor: crosshair; }
+.map-dialog canvas { width: 100%; max-height: 55dvh; object-fit: contain; display: block; background: #314d57; border: 1px solid #809da5; cursor: crosshair; }
 .rpg-dialog { width: min(620px,calc(100vw - 32px)); border-top-color: var(--plum); padding: 28px; }
 .npc-head { display: flex; align-items: center; gap: 12px; padding-right: 54px; }
 .npc-head > span:first-child { width: 48px; height: 48px; flex: 0 0 auto; display: grid; place-items: center; background: var(--plum); color: #fff; font-size: 28px; font-weight: 400; }
@@ -149,11 +149,11 @@ kbd { font: 11px/1.3 'Segoe UI', Arial, sans-serif; border: 1px solid currentCol
 .npc-stage { color: var(--muted); font-size: 12px; font-style: italic; margin: 12px 0 18px; }
 .conversation { min-height: 130px; max-height: 38dvh; overflow-y: auto; padding: 16px 0; }
 .bubble { font-size: 14px; line-height: 1.65; margin-bottom: 12px; padding: 12px 14px; border-left: 3px solid var(--teal); background: var(--field); overflow-wrap: anywhere; }
-.bubble.you { margin-left: 24px; border-color: var(--plum); background: #e5dfeb; }
+.bubble.you { margin-left: 24px; border-color: var(--plum); background: #d7e2e9; }
 .bubble small { color: var(--teal); display: block; margin-bottom: 5px; font-size: 11px; font-weight: 600; }
 .bubble.you small { color: var(--plum); }
 .rpg-dialog .conversation { min-height: 0; max-height: min(32dvh,280px); margin: 0 0 26px; padding: 20px; border-left: 3px solid var(--plum); background: var(--white); }
-.rpg-dialog .bubble { background: none; border: 0; padding: 0; margin: 0; color: #30372c; font-size: 20px; line-height: 1.6; }
+.rpg-dialog .bubble { background: none; border: 0; padding: 0; margin: 0; color: #233e4b; font-size: 20px; line-height: 1.6; }
 .rpg-dialog .bubble small { display: none; }
 .reply-options h3 { margin: 0 0 12px; color: var(--muted); font-size: 12px; font-weight: 600; }
 .dialogue-choices { display: grid; gap: 10px; margin: 0; counter-reset: reply; }
@@ -313,17 +313,17 @@ kbd { font: 11px/1.3 'Segoe UI', Arial, sans-serif; border: 1px solid currentCol
 .action-status meter { width: 80px; height: 6px; }
 .mini-wrap { bottom: calc(var(--dock-clearance,170px) + 16px); }
 .forge-dialog { width: min(650px,calc(100vw - 32px)); border-top-color: var(--amber); }
-.forge-playing > .eyebrow { display:none; }.forge-playing #smith-title { font-size:14px; padding-right:44px; margin:0; }.forge-playing .forge-exit { margin-top:12px; }.forge-playing:has(#forge-hammering:not([hidden])) > .forge-feedback { display:none; }.forge-fizzle { height:70px; display:grid; place-items:center; color:#ffb23e; background:#27362e; font-size:28px; letter-spacing:16px; animation:forge-fizzle .8s 3; }@keyframes forge-fizzle { to { letter-spacing:24px; opacity:.15; transform:translateY(6px); } }
+.forge-playing > .eyebrow { display:none; }.forge-playing #smith-title { font-size:14px; padding-right:44px; margin:0; }.forge-playing .forge-exit { margin-top:12px; }.forge-playing:has(#forge-hammering:not([hidden])) > .forge-feedback { display:none; }.forge-fizzle { height:70px; display:grid; place-items:center; color:#c79c59; background:#1c3543; font-size:28px; letter-spacing:16px; animation:forge-fizzle .8s 3; }@keyframes forge-fizzle { to { letter-spacing:24px; opacity:.15; transform:translateY(6px); } }
 .forge-wallet { padding: 12px; background: var(--field); color: var(--plum); font-weight: 600; }
 .weapon-card { border-top: 1px solid var(--line); padding: 18px 0; }
 .weapon-card h3 { margin: 0 0 5px; font-size: 20px; }.weapon-card p { margin: 6px 0; font-size: 13px; }.weapon-card small { color: var(--muted); }.weapon-card .forge-cost { color: var(--plum); margin: 12px 0; }.weapon-card button { min-height: 48px; }
 .smith-market { margin: 14px 0; padding: 12px; background: var(--field); }.smith-market summary { min-height: 44px; cursor: pointer; }.smith-market > button { margin-bottom: 12px; }.smith-market .inline-form { gap: 10px; }
 .forge-result { border-left: 4px solid var(--teal); padding: 12px; background: var(--white); }
-.forge-fire { height: 120px; background: #27362e; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; overflow: hidden; }.forge-fire > span { color: #f8a14c; font-size: 24px; letter-spacing: 8px; animation: fire-flicker .4s infinite alternate; }.heat-billet { width: 65%; height: 24px; background: var(--heat-color,#63716c); clip-path: polygon(0 0,94% 0,100% 50%,94% 100%,0 100%); transition: background .2s; }.heat-billet.glowing { filter: drop-shadow(0 0 8px var(--heat-color)); }
-.heat-track { position: relative; height: 24px; margin: 18px 0; background: linear-gradient(to right,#677973 0% 54.5%,#ff9b32 54.5% 81.8%,#c83d5b 81.8% 100%); }.heat-needle { position: absolute; top: -5px; bottom: -5px; width: 3px; background: white; outline: 1px solid #27362e; transform: translateX(-50%); }
+.forge-fire { height: 120px; background: #1c3543; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 20px; overflow: hidden; }.forge-fire > span { color: #80b8c5; font-size: 11px; letter-spacing: 3px; }.heat-billet { width: 65%; height: 24px; background: var(--heat-color,#63716c); clip-path: polygon(0 0,94% 0,100% 50%,94% 100%,0 100%); transition: background .2s; }.heat-billet.glowing { filter: drop-shadow(0 0 8px var(--heat-color)); }
+.heat-track { position: relative; height: 24px; margin: 18px 0; background: linear-gradient(to right,#677973 0% 54.5%,#ff9b32 54.5% 81.8%,#b75651 81.8% 100%); }.heat-needle { position: absolute; top: -5px; bottom: -5px; width: 3px; background: white; outline: 1px solid #1c3543; transform: translateX(-50%); }
 #heat-label { min-height: 42px; font-weight: 600; }.forge-heating button,.forge-dialog .primary { min-height: 48px; }
 .strike-clock { display: flex; gap: 14px; align-items: center; margin: 16px 0; }.strike-clock meter { width: 100%; height: 14px; }.strike-clock strong { flex: 0 0 48px; font-variant-numeric: tabular-nums; }
-.forge-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; padding: 14px; background: #48564b; border: 5px solid #677564; }.forge-grid button { min-height: 70px; background: #b7b8a1; box-shadow: none; border: 0; font-size: 14px; }.forge-grid .lit { background: #ffb23e; color: #342d1f; font-weight: 700; animation: mark-pulse .5s infinite alternate; }.forge-grid.hit { animation: anvil-hit .18s; }.forge-grid.miss { animation: anvil-miss .2s; }
+.forge-grid { display: grid; grid-template-columns: repeat(3,minmax(0,1fr)); gap: 12px; padding: 14px; background: #48564b; border: 5px solid #677564; }.forge-grid button { min-height: 70px; background: #b7b8a1; box-shadow: none; border: 0; font-size: 14px; }.forge-grid .lit { background: #c79c59; color: #342d1f; font-weight: 700; animation: mark-pulse .5s infinite alternate; }.forge-grid.hit { animation: anvil-hit .18s; }.forge-grid.miss { animation: anvil-miss .2s; }
 .forge-feedback { min-height: 22px; color: var(--plum); font-size: 13px; }.forge-exit { margin-top: 22px; gap: 10px; }#weapon-inventory { display: grid; gap: 10px; }.owned-weapon { padding: 12px; background: var(--field); display: flex; justify-content: space-between; align-items: center; gap: 12px; }.owned-weapon button { min-height: 44px; }
 @keyframes fire-flicker { to { opacity: .65; transform: scaleY(.8); } }@keyframes mark-pulse { to { background: #ffd78b; } }@keyframes anvil-hit { 50% { transform: translateY(3px); } }@keyframes anvil-miss { 25% { transform: translateX(-4px); }75% { transform: translateX(4px); } }
 @media (prefers-reduced-motion:reduce) { .forge-fire > span,.forge-grid,.forge-grid .lit { animation: none; } }
@@ -336,3 +336,19 @@ kbd { font: 11px/1.3 'Segoe UI', Arial, sans-serif; border: 1px solid currentCol
   #dungeon-status { top: 142px; }
 }
 @media (prefers-reduced-motion: reduce) { * { transition: none !important; } }
+
+/* Private passage and frontier archive use the same compact field-kit controls. */
+.transit-link { width:100%; justify-content:space-between; margin:0 0 16px; border-left:3px solid var(--amber); }
+.transit-dialog,.lore-dialog { width:min(660px,calc(100vw - 32px)); }
+#planet-catalog { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:12px; margin-top:18px; }
+.planet-card { padding:16px; border:1px solid var(--line); background:var(--white); display:flex; flex-direction:column; gap:10px; }
+.planet-card h3 { margin:0; font-size:17px; }
+.planet-card p { margin:0; color:var(--muted); font-size:13px; }
+.planet-card button { margin-top:auto; min-height:44px; }
+#transit-feedback { font-size:13px; color:var(--coral); }
+#fringe-chapters details { border-top:1px solid var(--line); }
+#fringe-chapters summary { min-height:48px; padding:14px 4px; cursor:pointer; font-weight:600; }
+#fringe-chapters details p { margin:0; padding:0 4px 20px; font-size:15px; line-height:1.7; }
+#landing-dialog { border-top-color:var(--amber); }
+#refine-powerball { margin-right:8px; }
+@media(max-width:760px) { #planet-catalog { grid-template-columns:1fr; } .planet-card { padding:14px; } .transit-dialog,.lore-dialog { width:auto; } select { min-height:44px; } }
