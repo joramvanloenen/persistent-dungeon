@@ -1,13 +1,13 @@
-import {Store} from './storage.js?v=7';
-import {WorldRenderer} from './render.js?v=7';
+import {Store} from './storage.js?v=8';
+import {WorldRenderer} from './render.js?v=8';
 import {drawMap,drawCaveMap,drawMiniMap} from './map.js?v=6';
 import {BIOMES,CHUNK,LIMIT,biomeAt,nearestSettlement,waterDistance} from './world.js?v=6';
 import {caveStatus,roomAt,resolveDungeon} from './dungeons.js?v=2';
-import {npcGreeting} from './rules.js?v=7';
+import {npcGreeting} from './rules.js?v=8';
 import {equippedWeapon} from './action-game.js?v=6';
 import {installForgeUI} from './forge-ui.js?v=6';
 import {installUILayout} from './ui-layout.js?v=4';
-import {appendMovementTrail} from './world-collision.js?v=7';
+import {appendMovementTrail} from './world-collision.js?v=8';
 const $=id=>document.getElementById(id);
 const detachUILayout=installUILayout(),touchControls=window.matchMedia('(pointer: coarse)');window.addEventListener('pagehide',detachUILayout,{once:true});
 let store=new Store(),world,player,nearby=null,busy=false,dirty=false,activeNpc=null,waypoint=null,miniLast={x:Infinity,z:Infinity,yaw:null,time:0},events=[],mapSpan=2600,mapCenter=null,saveTimer,syncTimer,loaded=false,trail=[],historyOffset=0,entrance=null,suppressed=new Set();

@@ -5,8 +5,8 @@ import {CAMERA_LIMITS,wrapAngle,clampPitch,advanceOrbit,orbitPosition} from './c
 import {CHUNK,REGION,WATER,BIOMES,hash,heightAt,waterDistance,biomeAt,roadSegments,roadDistance,settlement,npcsFor,resourcesFor,nearestSettlement,smithFor} from './world.js?v=6';
 import {equippedWeapon,guardiansFor,dummyFor} from './action-game.js?v=6';
 import {advanceMotion,beginJump} from './action-motion.js?v=6';
-import {villageHouses,homeObstacles,villageObstacles,ruinObstacles,ruinRubble,resourceObstacle,caveObstacles,foliageFor,outsideHome,circle} from './scene-layout.js?v=7';
-import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=7';
+import {villageHouses,homeObstacles,villageObstacles,ruinObstacles,ruinRubble,resourceObstacle,caveObstacles,foliageFor,outsideHome,circle} from './scene-layout.js?v=8';
+import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=8';
 import {loadFoliageMaterials,createBillboardBatch,createBillboardMaterial} from './foliage-billboards.js?v=7';
 const materials={};const mat=(name,color)=>materials[name]||(materials[name]=new T.MeshStandardMaterial({color,roughness:1,flatShading:true}));
 const geos={box:new T.BoxGeometry(1,1,1),trunk:new T.CylinderGeometry(.25,.45,1,5),pine:new T.ConeGeometry(1,1,6),rock:new T.IcosahedronGeometry(1,0),sphere:new T.IcosahedronGeometry(1,1),grass:new T.ConeGeometry(1,1,3)};
@@ -175,12 +175,11 @@ export class WorldRenderer {
   this.getFoliage();
   const nodes=resourcesFor(cx,cz),decorBatches=[],layout=foliageFor(cx,cz);
   const addBatch=(material,items,decor=false)=>{const result=createBillboardBatch(material,items);group.add(result.batch);disposable.push(result.batch);if(decor)decorBatches.push({...result,items});return result;};
-  for(let variant=0;variant<2;variant++){const trees=nodes.filter(n=>n.kind==='wood'&&(hash(cx,cz,1000+Number(n.id.split(':').at(-1)))<.5?0:1)===variant).map(n=>({...n,height:10*n.scale,width:10*n.scale})),{batch,matrices}=addBatch(this.foliage.trees[variant],trees);trees.forEach((n,i)=>{const entry={...n,instanced:true,instances:[[batch,i,matrices[i]]],occupied:false};this.nodes.set(n.id,entry);ids.push(n.id);});}
+  for(let variant=0;variant<2;variant++){const trees=nodes.filter(n=>n.kind==='wood'&&(hash(cx,cz,1000+Number(n.id.split(':').at(-1)))<.5?0:1)===variant).map(n=>({...n,height:13+(n.scale-.75)/.7*1.5,width:13+(n.scale-.75)/.7*1.5})),{batch,matrices}=addBatch(this.foliage.trees[variant],trees);trees.forEach((n,i)=>{const entry={...n,instanced:true,instances:[[batch,i,matrices[i]]],occupied:false};this.nodes.set(n.id,entry);ids.push(n.id);});}
   for(const n of nodes.filter(n=>n.kind==='stone')){const object=mesh(geos.rock,mat('rock',0x8b9585),n.x,n.y+.9,n.z,1.4*n.scale,1.2*n.scale,1.1*n.scale);group.add(object);this.nodes.set(n.id,{...n,object,occupied:false});ids.push(n.id);}
   for(const kind of ['berries','fiber']){const items=nodes.filter(n=>n.kind===kind).map(n=>({...n,height:kind==='berries'?2.6:1.7,width:kind==='berries'?2.8:2.2})),{batch,matrices}=addBatch(kind==='berries'?this.foliage.berries:this.foliage.grass,items);items.forEach((n,i)=>{this.nodes.set(n.id,{...n,instanced:true,instances:[[batch,i,matrices[i]]],occupied:false});ids.push(n.id);});}
   for(let variant=0;variant<2;variant++)addBatch(this.foliage.trees[variant],layout.trees.filter(n=>n.variant===variant).map(n=>({...n,width:n.height})),true);
-  for(let variant=0;variant<2;variant++)addBatch(this.foliage.trees[variant],layout.plants.filter(n=>n.kind==='shrub'&&n.variant===variant),true);
-  addBatch(this.foliage.grass,layout.plants.filter(n=>n.kind==='grass'),true);addBatch(this.foliage.flowers,layout.plants.filter(n=>n.kind==='flowers'),true);
+  addBatch(this.foliage.grass,layout.plants.filter(n=>n.kind==='grass'||n.kind==='shrub'),true);addBatch(this.foliage.flowers,layout.plants.filter(n=>n.kind==='flowers'),true);
 
   this.scene.add(group);this.chunks.set(`${cx}:${cz}`,{group,terrain,ids,disposable,cx,cz,decorTrees:layout.trees,decorBatches});this.refreshChunkCollision(this.chunks.get(`${cx}:${cz}`));
  }

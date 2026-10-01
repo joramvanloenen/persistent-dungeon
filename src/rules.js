@@ -1,7 +1,7 @@
 import {initialPlayer,nearestSettlement,waterDistance,resolveResource,resolveNpc,LIMIT,roadDistance,roadSegments,REGION,smithFor,settlement} from './world.js?v=6';
 import {normalizePlayer} from './homes.js?v=6';
 import {applyActionGame} from './action-game.js?v=6';
-import {buildSurfaceCollisions,waterPathClear} from './world-collision.js?v=7';
+import {buildSurfaceCollisions,waterPathClear} from './world-collision.js?v=8';
 import {resolveDungeon,resolveCaveResource,cavePathClear,caveWalkable,roomAt,ruinFor} from './dungeons.js?v=2';
 export const RESOURCE_LABELS={wood:'wood',stone:'stone',berries:'berries',fiber:'fiber'};
 export function cleanName(s){return String(s||'Traveler').trim().slice(0,28)||'Traveler';}

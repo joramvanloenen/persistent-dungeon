@@ -1,5 +1,5 @@
 import CONFIG from '../config.js';
-import {createPlayer,validateAction} from './rules.js?v=7';
+import {createPlayer,validateAction} from './rules.js?v=8';
 import {normalizePlayer} from './homes.js?v=6';
 const LOCAL_KEY='evermere-local-v1';
 export class Store {
