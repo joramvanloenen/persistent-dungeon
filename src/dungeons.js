@@ -1,4 +1,4 @@
-import {hash,settlement,heightAt,waterDistance,roadDistance,roadSegments,REGION,LIMIT} from './world.js?v=9';
+import {hash,settlement,heightAt,waterDistance,roadDistance,roadSegments,REGION,LIMIT} from './world.js?v=10';
 export const TILE=2.8;
 const cache=new Map(),ruinCache=new Map();
 export function dungeonId(rx,rz){return `d:${rx}:${rz}`;}

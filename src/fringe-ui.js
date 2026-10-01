@@ -1,11 +1,13 @@
-import {allPlanets,resolvePlanet,canLaunch,transitFare} from './planets.js?v=9';
-import {LORE} from './fringe-lore.js?v=9';
+import {allPlanets,resolvePlanet,canLaunch,transitFare} from './planets.js?v=10';
+import {LORE} from './fringe-lore.js?v=10';
 export function installFringeUI({getPlayer,act,openDialog,onLanded,doc=document}){
  const $=id=>doc.getElementById(id);let waiting=false;
  function render(){const p=getPlayer();if(!p)return;const current=resolvePlanet(p.planet),payment=$('transit-payment').value,fare=transitFare(p,payment),launch=canLaunch(p);$('transit-current').textContent=`${current.name} · ${p.coins} credits · ${p.inventory.powerballs} Powerballs`;$('transit-note').textContent=p.forge?'Finish your fabrication job before booking passage.':!launch?'Return to a colony landing pad or your own pod to book passage.':fare.voucher?'Your Dugall arrival voucher covers this trip.':payment==='powerball'?'Passage uses one Powerball.':'Dugall passage costs four credits.';
+  $('transit-cancel-job').hidden=!p.forge;$('transit-cancel-job').disabled=waiting;
   $('planet-catalog').replaceChildren();for(const planet of allPlanets()){const known=p.visitedPlanets.includes(planet.id),card=doc.createElement('article'),title=doc.createElement('h3'),description=doc.createElement('p'),button=doc.createElement('button');card.className='planet-card';title.textContent=known?planet.name:`Uncharted beacon ${planet.gx+2}.${planet.gz+2}`;description.textContent=known?`${planet.type} · Surface visited`:'Drifter colony beacon received · Surface unsurveyed';button.textContent=planet.id===p.planet?'Current planet':known?'Book passage':'Investigate beacon';button.className='primary';button.disabled=waiting||planet.id===p.planet||!launch||!!p.forge||p.coins<fare.coins||p.inventory.powerballs<fare.powerballs;button.onclick=async()=>{waiting=true;render();try{const r=await act({type:'travel-planet',target:planet.id,payment});$('transit-dialog').close();onLanded?.(planet,r);}catch(e){$('transit-feedback').textContent=e.message;}finally{waiting=false;render();}};card.append(title,description,button);$('planet-catalog').append(card);}
  }
  for(const chapter of LORE){const section=doc.createElement('details'),heading=doc.createElement('summary'),paragraph=doc.createElement('p');heading.textContent=chapter.title;paragraph.textContent=chapter.text;section.append(heading,paragraph);$('fringe-chapters').append(section);}
  const transit=()=>{if(!getPlayer())return;for(const id of ['map-dialog','account-dialog'])if($(id).open)$(id).close();$('transit-feedback').textContent='';render();openDialog('transit-dialog');};$('map-transit').onclick=transit;$('account-transit').onclick=transit;$('transit-payment').onchange=render;
+ $('transit-cancel-job').onclick=async()=>{waiting=true;render();try{const r=await act({type:'forge-abandon'});$('transit-feedback').textContent=r.summary;}catch(e){$('transit-feedback').textContent=e.message;}finally{waiting=false;render();}};
  $('lore-button').onclick=()=>{$('account-dialog').close();openDialog('lore-dialog');};return {transit,refresh:render};
 }

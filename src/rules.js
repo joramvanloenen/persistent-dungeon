@@ -1,10 +1,10 @@
-import {RESOURCE_NAMES,loreReply,containsPowerball} from './fringe-lore.js?v=9';
-import {applyTransit,planetAt,planetContains} from './planets.js?v=9';
-import {initialPlayer,nearestSettlement,waterDistance,resolveResource,resolveNpc,LIMIT,roadDistance,roadSegments,REGION,smithFor,settlement} from './world.js?v=9';
-import {normalizePlayer} from './homes.js?v=9';
-import {applyActionGame} from './action-game.js?v=9';
-import {buildSurfaceCollisions,waterPathClear} from './world-collision.js?v=9';
-import {resolveDungeon,resolveCaveResource,cavePathClear,caveWalkable,roomAt,ruinFor} from './dungeons.js?v=9';
+import {RESOURCE_NAMES,loreReply,containsPowerball} from './fringe-lore.js?v=10';
+import {applyTransit,planetAt,planetContains} from './planets.js?v=10';
+import {initialPlayer,nearestSettlement,waterDistance,resolveResource,resolveNpc,LIMIT,roadDistance,roadSegments,REGION,smithFor,settlement} from './world.js?v=10';
+import {normalizePlayer} from './homes.js?v=10';
+import {applyActionGame} from './action-game.js?v=10';
+import {buildSurfaceCollisions,waterPathClear} from './world-collision.js?v=10';
+import {resolveDungeon,resolveCaveResource,cavePathClear,caveWalkable,roomAt,ruinFor} from './dungeons.js?v=10';
 export const RESOURCE_LABELS=RESOURCE_NAMES;
 export function cleanName(s){return String(s||'Traveler').trim().slice(0,28)||'Traveler';}
 export function validateAction(input,a,context={}) {

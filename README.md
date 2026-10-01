@@ -19,7 +19,7 @@ The setting follows the supplied Fringe history: unincorporated systems beyond B
 
 Click/tap ground to walk, or use WASD/arrows. Hold **Shift** to run, **Space** to jump, **F** to attack with an equipped weapon, **E** to interact, **I** for cargo, and **M** for the surface map. Drag to orbit horizontally and vertically; scroll/pinch to zoom. Camera elevation is bounded, and the minimap follows camera forward. Mobile has separated Run, Jump, and Attack controls and dialog layouts that adapt to the keyboard.
 
-Most colonies have an induction fabrication bay. Approach its fabricator for the weapon catalog: **Vibroknife** (10 strikes), **Arc blade** (14), or **Breacher axe** (16). Pay the bay rental and materials once, heat an alloy blank for 6–9 seconds until orange, then transfer it to the forming press. Overheating ruins the blank. Hit each highlighted press square within two seconds; three mistakes require reheating. Replacement blanks are included in the rental. Completed equipment and unfinished jobs persist. Calibration rigs let you practice; defeated security units yield credits and alloy.
+Most colonies have an induction fabrication bay. Approach its fabricator for the weapon catalog: **Vibroknife** (10 strikes), **Arc blade** (14), or **Breacher axe** (16). Pay the bay rental and materials once, heat an alloy blank for 6–9 seconds until orange, then transfer it to the forming press. Overheating ruins the blank. Hit each highlighted press square within two seconds; three mistakes require reheating. Replacement blanks are included in the rental. Completed equipment and unfinished jobs persist. Cancel a remote job from Planet transit if a session return leaves you away from its bay; its paid fee and materials are consumed. Calibration rigs let you practice; defeated security units yield credits and alloy.
 
 Habitat pods, modular housing, freight shuttles, recyclers, fabrication equipment, access locks, rocks, and tree trunks have collision footprints. Running uses swept movement; click navigation routes around obstacles. The supplied tree PNGs remain unchanged, face the camera around world Y, and stay between 13 and 14.5 units tall. Grasses and bushes remain soft.
 
@@ -35,7 +35,7 @@ The genre conversion preserves the original seed, resource/NPC/home/facility IDs
 
 Serve the root with `python3 -m http.server 8080`, then open http://localhost:8080. No build or package installation is needed. Run `npm test` (Node 22.13+ for SQLite tests).
 
-The 38 tests cover generation, migration, local and server reloads, shared resource claims and stale revisions, exact NPC recall, connected facilities, camera/minimap behavior, collisions, foliage, combat, fabrication timing, transit fares and restrictions, all nine safe landing points, and saved planetary discoveries.
+The 39 tests cover generation, migration, local and server reloads, shared resource claims and stale revisions, exact NPC recall, connected facilities, camera/minimap behavior, collisions, foliage, combat, fabrication timing, transit fares and restrictions, all nine safe landing points, and saved planetary discoveries.
 
 `dev/fringe-preview.html` is a disposable UI playtest using the real transit, fabrication, and conversation rules in memory. It includes desktop and 320/390 px phone layouts and a visible control audit. It does not load WebGL or change a traveler save. Other `dev/` previews exercise dialogue layout, camera-oriented minimaps, and fabrication timing.
 

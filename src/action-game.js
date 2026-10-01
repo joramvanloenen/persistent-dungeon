@@ -1,7 +1,7 @@
-import {planetAt} from './planets.js?v=9';
-import {RESOURCE_NAMES} from './fringe-lore.js?v=9';
-import {hash,settlement,smithFor} from './world.js?v=9';
-import {resolveDungeon,TILE,cavePathClear} from './dungeons.js?v=9';
+import {planetAt} from './planets.js?v=10';
+import {RESOURCE_NAMES} from './fringe-lore.js?v=10';
+import {hash,settlement,smithFor} from './world.js?v=10';
+import {resolveDungeon,TILE,cavePathClear} from './dungeons.js?v=10';
 export const WEAPONS=Object.freeze([
  {id:'dagger',name:'Vibroknife',fee:4,iron:2,wood:1,hits:10,damage:12,reach:4.4,description:'A compact salvage tool with an oscillating alloy edge.'},
  {id:'sword',name:'Arc blade',fee:7,iron:3,wood:2,hits:14,damage:18,reach:5.5,description:'A field blade with a charged cutting rail and longer reach.'},
@@ -26,7 +26,7 @@ export function applyActionGame(p,next,a,now){
  case 'forge-transfer':{const job=jobAtSmith();if(job.phase!=='heat')throw Error('The blank is not in the induction bay.');const state=heatState(job,now);if(state.elapsed<HEAT.orangeStart)throw Error('The metal is still too cold.');if(state.elapsed>HEAT.orangeEnd){job.phase='failed';summary='The overheated blank sparked and broke apart';}else{job.phase='hammer';job.deadline=now+2000;summary='Brought orange-hot metal to the forming press';}break;}
  case 'forge-strike':{const job=jobAtSmith();if(job.phase!=='hammer'||a.step!==job.step)throw Error('That strike belongs to an earlier step.');const recipe=WEAPONS.find(r=>r.id===job.recipe);if(now>job.deadline||a.spot!==forgeSpot(job)){job.mistakes++;job.step=Math.max(0,job.step-1);if(job.mistakes>=3)job.phase='failed';else job.deadline=now+2000;summary=job.phase==='failed'?'The blank lost its shape. Start heating again.':'Missed the mark. One strike lost.';}else{job.step++;if(job.step>=recipe.hits){const weapon={id:`weapon:${p.id}:${job.serial}`,recipe:recipe.id,name:recipe.name,damage:recipe.damage,reach:recipe.reach};next.weapons.push(weapon);next.equipped=weapon.id;next.forge=null;extra={crafted:weapon};summary=`Fabricated and equipped ${recipe.name}`;}else{job.deadline=now+2000;summary=`Shaped the blank: ${job.step}/${recipe.hits} strikes`;}}break;}
  case 'forge-retry':{const job=jobAtSmith();if(job.phase!=='failed'&&!(job.phase==='heat'&&heatState(job,now).ruined))throw Error('The current blank can still be worked.');Object.assign(job,{phase:'heat',startedAt:now,step:0,mistakes:0});summary='The fabricator replaced the ruined blank. Heating again.';break;}
- case 'forge-abandon':{jobAtSmith();next.forge=null;summary='Abandoned the paid blank';break;}
+ case 'forge-abandon':{if(!p.forge)throw Error('You have no paid fabrication job.');next.forge=null;summary='Cancelled the fabrication rental · fee and materials consumed';break;}
  case 'equip':{if(a.weapon!==null&&!p.weapons.some(w=>w.id===a.weapon))throw Error('That weapon is not in your cargo kit.');next.equipped=a.weapon;summary=a.weapon===null?'Put your weapon away':`Equipped ${p.weapons.find(w=>w.id===a.weapon).name}`;break;}
  case 'jump':{if(now-(p.lastJump||0)<900)throw Error('Land before jumping again.');next.lastJump=now;next.actionStats.jumps++;summary='Jumped';break;}
  case 'attack':{

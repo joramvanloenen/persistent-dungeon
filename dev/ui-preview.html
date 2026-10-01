@@ -3,7 +3,7 @@
 <head>
  <meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
  <title>The Fringe interface preview</title>
- <link rel="stylesheet" href="../style.css?v=9">
+ <link rel="stylesheet" href="../style.css?v=10">
  <style>
   body{overflow:auto;background:#e2e0cb;padding:14px;margin:0}header{display:flex;align-items:center;gap:6px;flex-wrap:wrap;margin-bottom:12px}header strong{margin-right:auto;font-size:14px}header button{font-size:12px;min-height:34px;padding:6px 10px}iframe{box-sizing:content-box;display:block;width:calc(100% - 2px);height:calc(100dvh - 112px);min-height:480px;border:1px solid #bebfab;margin:auto;background:#9baa92}.note{font-size:11px;color:#67695d;margin:8px 0}
  </style>
@@ -14,11 +14,11 @@
  <p class="note">UI fixtures only. This preview does not load the game or change a saved traveler.</p>
  <output id="layout-audit" class="note" aria-live="polite"></output>
  <script type="module">
-  import {drawMap,drawMiniMap,drawCaveMap} from '../src/map.js?v=9';
-  import {generateDungeon} from '../src/dungeons.js?v=9';
-  import {createPlayer} from '../src/rules.js?v=9';
+  import {drawMap,drawMiniMap,drawCaveMap} from '../src/map.js?v=10';
+  import {generateDungeon} from '../src/dungeons.js?v=10';
+  import {createPlayer} from '../src/rules.js?v=10';
   import {installUILayout} from '../src/ui-layout.js?v=4';
-  const frame=document.getElementById('preview'),source=await(await fetch('../index.html?v=9')).text(),doc=new DOMParser().parseFromString(source,'text/html');
+  const frame=document.getElementById('preview'),source=await(await fetch('../index.html?v=10')).text(),doc=new DOMParser().parseFromString(source,'text/html');
   doc.querySelectorAll('script').forEach(e=>e.remove());const base=doc.createElement('base');base.href=new URL('../',location.href).href;doc.head.prepend(base);
   doc.getElementById('loading').hidden=true;doc.getElementById('save-status').textContent='Saved on this device';doc.getElementById('location').textContent='Willowhaven';doc.getElementById('nearby-tip').textContent='Mara · village keeper';doc.getElementById('interact-button').disabled=false;doc.getElementById('interact-button').innerHTML='Talk to Mara <kbd>E</kbd>';
   doc.getElementById('connection-notice').hidden=false;const stage=doc.createElement('style');stage.textContent='#scene{background:#9baa92}#scene::before{content:"";position:absolute;inset:20% 25%;border:1px solid #aebca5;background:#93a88b}';doc.head.append(stage);

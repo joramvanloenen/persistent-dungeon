@@ -1,5 +1,5 @@
-import {CHUNK,BIOMES,hash,biomeAt,heightAt,waterDistance,roadDistance,roadSegments,nearestSettlement,smithFor} from './world.js?v=9';
-import {ruinFor,TILE} from './dungeons.js?v=9';
+import {CHUNK,BIOMES,hash,biomeAt,heightAt,waterDistance,roadDistance,roadSegments,nearestSettlement,smithFor} from './world.js?v=10';
+import {ruinFor,TILE} from './dungeons.js?v=10';
 
 // These placements also drive collisions. Keep the existing village layout and seed.
 export function villageHouses(s){return Array.from({length:7},(_,i)=>{const angle=i*Math.PI*2/7,r=27+hash(s.rx,s.rz,1700+i)*8;return {id:`${s.id}:house:${i}`,x:s.x+Math.cos(angle)*r,z:s.z+Math.sin(angle)*r,y:s.y,rotation:-angle+Math.PI/2,width:7+hash(s.rx,s.rz,1800+i)*3,depth:7+hash(s.rx,s.rz,1900+i)*4};});}

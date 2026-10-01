@@ -1,6 +1,6 @@
-import {CHUNK,REGION,settlement,resourcesFor,waterDistance,roadDistance,roadSegments} from './world.js?v=9';
-import {ruinFor} from './dungeons.js?v=9';
-import {homeObstacles,villageObstacles,ruinObstacles,resourceObstacle,foliageFor,outsideHome,circle} from './scene-layout.js?v=9';
+import {CHUNK,REGION,settlement,resourcesFor,waterDistance,roadDistance,roadSegments} from './world.js?v=10';
+import {ruinFor} from './dungeons.js?v=10';
+import {homeObstacles,villageObstacles,ruinObstacles,resourceObstacle,foliageFor,outsideHome,circle} from './scene-layout.js?v=10';
 export const PLAYER_RADIUS=.65;
 const CELL=16;
 function local(p,o){const c=Math.cos(o.rotation||0),s=Math.sin(o.rotation||0),x=p.x-o.x,z=p.z-o.z;return {x:c*x-s*z,z:s*x+c*z};}
