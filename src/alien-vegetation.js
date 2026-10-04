@@ -30,22 +30,27 @@ function grow(variant,lowDetail=false){
   trunk=variant===1?[v(0,0,0),v(.23,3,-.18),v(-.18,6,.27),v(.38,9,-.1),v(.1,12,.1)]:variant===2?[v(0,0,0),v(-.16,3,.13),v(.22,5.8,-.15),v(-.3,8.7,.18),v(-.12,11.2,0)]:[v(0,0,0),v(.17,3,.1),v(-.25,6,.03),v(.3,9,-.2),v(0,11.6,0)];
  tube(trunk,[.47,.39,.31,.2,.045],lowDetail?4:6,shade.bark);
  for(let a=0;a<(lowDetail?Math.min(arms,4):arms);a++){
-  const angle=a*Math.PI*2/arms+(variant*.5),spread=variant===1?3.9:variant===2?3.3:3.5,
-   level=variant===1?3.6+(a%2)*1.9:4.2+(a%3)*1.3,
-   dir=v(Math.cos(angle),0,Math.sin(angle)),base=v(.1,level,0),mid=base.clone().addScaledVector(dir,spread*.43).add(v(0,1.5+(a%2)*.4,0)),
-   tip=base.clone().addScaledVector(dir,spread*(.82+rnd()*.25)).add(v(0,3.4+(a%3)*.52,0));
+  const angle=a*Math.PI*2/arms+(variant*.5),spread=variant===1?4.5:variant===2?4.3:3.2,
+   level=variant===1?4.7+(a%2)*1.25:variant===2?3.7+(a%3)*1.05:4.2+(a%3)*1.3,
+   dir=v(Math.cos(angle),0,Math.sin(angle)),base=v(.1,level,0),mid=base.clone().addScaledVector(dir,spread*.43).add(v(0,variant===1?3.1:1.5+(a%2)*.4,0)),
+   tip=base.clone().addScaledVector(dir,spread*(.82+rnd()*.25)).add(v(0,variant===1?.9+(a%2)*.6:variant===2?2.6+(a%3)*.45:3.8+(a%3)*.52,0));
   tube([base,mid,tip],[.25,.15,.035],lowDetail?3:5,shade.inner);
   // Secondary feelers rise at odd angles; suspended tendrils sag below the forks.
   const fork=mid.clone().addScaledVector(dir,spread*.2).add(v(0,.95,0));
   if(!lowDetail)tube([mid,fork,fork.clone().add(v((rnd()-.5)*.9,1.2,(rnd()-.5)*.9))],[.12,.075,.015],4,shade.bark);
-  const hang=tip.clone().add(v((rnd()-.5)*.3,-1.35,(rnd()-.5)*.3));
-  const end=hang.clone().add(v((rnd()-.5)*.5,-1.1-rnd()*.8,(rnd()-.5)*.5));
-  if(!lowDetail||a%2===0)tube([tip,hang,end],[.065,.045,.015],3,shade.vine);
+  const coil=tip.clone().addScaledVector(dir,.55).add(v(0,-.38,0)),hang=tip.clone().addScaledVector(dir,.15).add(v((rnd()-.5)*.3,-1.55,(rnd()-.5)*.3));
+  const end=hang.clone().add(v((rnd()-.5)*.8,-1.15-rnd()*.9,(rnd()-.5)*.8));
+  if(!lowDetail||a%2===0)tube([tip,coil,hang,end],[.065,.055,.04,.015],3,shade.vine);
   if(!lowDetail||a%2===0)bulb(end.clone().add(v(0,-.35,0)),v(.27+rnd()*.12,.52+rnd()*.2,.25+rnd()*.1),shade.pod);
   if(!lowDetail||a%2===0)bulb(mid.clone().add(v(0,-.1,0)),v(.28,.24,.28),shade.knob);
+  if(!lowDetail&&variant===2&&a%2===0)bulb(end.clone().add(v(.35,-.1,.12)),v(.18,.4,.2),shade.pod);
   for(let j=0;j<(lowDetail?0:2);j++){
    const knot=base.clone().lerp(mid,.3+j*.33);bulb(knot,v(.14,.16,.14),shade.knob);
   }
+ }
+ if(!lowDetail)for(const y of [2.25,4.9,7.15]){
+  bulb(v(.24*Math.sin(y*2),y,.27*Math.cos(y*1.5)),v(.43,.37,.36),shade.knob);
+  bulb(v(-.2*Math.sin(y),y+.16,-.3*Math.cos(y)),v(.19,.22,.21),shade.inner);
  }
  bulb(trunk.at(-1),v(.45,.72,.39),shade.pod);
  if(!lowDetail)tube([v(.1,3.2,0),v(-.5,2.4,.36),v(-.72,1.5,.62)],[.08,.06,.012],3,shade.vine);

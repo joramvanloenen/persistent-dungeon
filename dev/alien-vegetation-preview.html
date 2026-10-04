@@ -3,7 +3,7 @@
 </style></head><body><header><h1>Procedural alien growth</h1><button data-biome="forest" aria-pressed="true">Canopy belt</button><button data-biome="marsh">Algal wetland</button><button data-biome="desert">Red dust flat</button><button data-biome="tundra">Frost plain</button></header><div class="frame"><canvas width="1000" height="650" aria-label="Three procedural branching alien plants with hanging lianes, knobs, and seed pods"></canvas></div><p class="caption">Development preview projected from the same generated mesh geometry used in the world. This view does not use WebGL.</p>
 <script type="module">
 import * as T from '../vendor/three.module.js';
-import {alienPlantGeometry} from '../src/alien-vegetation.js?v=13';
+import {alienPlantGeometry} from '../src/alien-vegetation.js?v=14';
 const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d'),tints={forest:0xb2d0b9,marsh:0x9dd1c2,desert:0xd8b69e,tundra:0xc6d0d5};let biome='forest';
 const camera=new T.PerspectiveCamera(42,1000/650,.1,120);camera.position.set(20,13,29);camera.lookAt(0,5.6,0);camera.updateMatrixWorld();camera.updateProjectionMatrix();
 const light=new T.Vector3(-.4,.85,.7).normalize(),a=new T.Vector3(),b=new T.Vector3(),c=new T.Vector3(),ab=new T.Vector3(),ac=new T.Vector3(),normal=new T.Vector3(),centroid=new T.Vector3();
