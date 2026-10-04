@@ -10,6 +10,7 @@ import {advanceMotion,beginJump} from './action-motion.js?v=6';
 import {villageHouses,homeObstacles,villageObstacles,ruinObstacles,ruinRubble,resourceObstacle,caveObstacles,foliageFor,outsideHome,circle} from './scene-layout.js?v=11';
 import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=11';
 import {loadFoliageMaterials,createBillboardBatch,createBillboardMaterial} from './foliage-billboards.js?v=7';
+import {createAlienVegetationBatch,alienPlantGeometry} from './alien-vegetation.js?v=13';
 import {salvageHut} from './salvage-huts.js?v=12';
 const materials={};const mat=(name,color)=>materials[name]||(materials[name]=new T.MeshStandardMaterial({color,roughness:1,flatShading:true}));
 const geos={box:new T.BoxGeometry(1,1,1),trunk:new T.CylinderGeometry(.25,.45,1,5),pine:new T.ConeGeometry(1,1,6),rock:new T.IcosahedronGeometry(1,0),sphere:new T.IcosahedronGeometry(1,1),grass:new T.ConeGeometry(1,1,3)};
@@ -82,7 +83,7 @@ export class WorldRenderer {
   for(const h of homes.filter(Boolean)){if(!this.homes.has(h.id))this.addHome(h);const item=this.homes.get(h.id);item.ownerName=h.ownerName;item.label.textContent=h.owner===this.player?.id?'Your landing pod':`${h.ownerName}'s pod`;item.group.visible=!this.cave;if(changed)this.collision.replace(h.id,homeObstacles(h));}if(changed)for(const chunk of this.chunks.values())this.refreshChunkCollision(chunk);
  }
  setWalkTarget(pos){const path=findSurfacePath(this.player,pos,(a,b)=>this.pathClear(a,b),this.cave?{step:1.4,margin:12,limit:22000}:{});if(!path)return false;this.path=path;this.target=this.path.shift();return true;}
- getFoliage(){return this.foliage??={trees:[createBillboardMaterial(new T.Texture()),createBillboardMaterial(new T.Texture())],grass:createBillboardMaterial(new T.Texture()),berries:createBillboardMaterial(new T.Texture()),flowers:createBillboardMaterial(new T.Texture())};}
+ getFoliage(){return this.foliage??={grass:createBillboardMaterial(new T.Texture()),berries:createBillboardMaterial(new T.Texture()),flowers:createBillboardMaterial(new T.Texture())};}
  addHome(h){
   const g=new T.Group();g.position.set(h.x,h.y,h.z);g.rotation.y=h.rotation;const own=h.owner===this.player?.id;
   g.add(salvageHut(9,8,0,own));
@@ -104,7 +105,7 @@ export class WorldRenderer {
   this.collision??=new CollisionIndex();const homes=[...this.homes.values()],shapes=[];
   for(const id of chunk.ids){const n=this.nodes.get(id);if(!n)continue;n.occupied=!outsideHome(n,homes);this.showNode(n,!this.depleted.has(id));if(!n.occupied&&!this.depleted.has(id)){const o=resourceObstacle(n);if(o)shapes.push(o);}}
   for(const n of chunk.decorTrees||[])if(outsideHome(n,homes))shapes.push(circle(n.id,n.x,n.z,.45));
-  for(const {batch,items,matrices}of chunk.decorBatches||[]){for(let i=0;i<items.length;i++)batch.setMatrixAt(i,outsideHome(items[i],homes)?matrices[i]:new T.Matrix4().makeScale(0,0,0));batch.instanceMatrix.needsUpdate=true;}
+  for(const {batch,items,matrices,offset=0}of chunk.decorBatches||[]){for(let i=0;i<items.length;i++)batch.setMatrixAt(i+offset,outsideHome(items[i],homes)?matrices[i+offset]:new T.Matrix4().makeScale(0,0,0));batch.instanceMatrix.needsUpdate=true;}
   this.collision.replace(`chunk:${chunk.cx}:${chunk.cz}`,shapes);
  }
  showNode(n,visible){visible=visible&&!n.occupied;if(n.instanced){for(const [m,i,matrix]of n.instances){if(visible)m.setMatrixAt(i,matrix);else{const hide=new T.Matrix4().makeScale(0,0,0);m.setMatrixAt(i,hide);}m.instanceMatrix.needsUpdate=true;}}else n.object.visible=visible;}
@@ -138,7 +139,8 @@ export class WorldRenderer {
   if(this.frame++%20===0&&!this.cave)this.stream();if(this.caveModel)for(const f of this.caveModel.torches)f.scale.y=.65+Math.sin(this.clock.elapsedTime*5+f.position.x)*.08;this.labels();for(const foe of this.opponents.values()){const visible=foe.object.visible&&Math.hypot(p.x-foe.x,p.z-foe.z)<45;foe.label.style.display=visible?'block':'none';if(visible){const v=this.projectedLabel.set(foe.x,(this.cave?0:foe.y)+4,foe.z).project(this.camera);foe.label.style.left=`${(v.x*.5+.5)*this.container.clientWidth}px`;foe.label.style.top=`${(-v.y*.5+.5)*this.container.clientHeight}px`;}}
   this.onFrame({x:p.x,z:p.z,moved,path:movementTrail,dt,running:state.running,stamina:state.stamina});this.renderer.render(this.scene,this.camera);
  }
- stream(){if(this.cave)return;const cx=Math.floor(this.player.x/CHUNK),cz=Math.floor(this.player.z/CHUNK),r=Math.min(4,Math.max(2,Math.ceil(this.zoom*1.6)));
+ updateVegetationLod(){for(const chunk of this.chunks.values()){const distance=Math.hypot((chunk.cx+.5)*CHUNK-this.player.x,(chunk.cz+.5)*CHUNK-this.player.z),lowDetail=distance>CHUNK*1.65;for(const plant of chunk.alienBatches||[])if(plant.userData.lowDetail!==lowDetail){plant.geometry=alienPlantGeometry(plant.userData.variant,lowDetail);plant.computeBoundingSphere();plant.userData.lowDetail=lowDetail;}}}
+ stream(){if(this.cave)return;this.updateVegetationLod();const cx=Math.floor(this.player.x/CHUNK),cz=Math.floor(this.player.z/CHUNK),r=Math.min(4,Math.max(2,Math.ceil(this.zoom*1.6)));
   if(this.cx===cx&&this.cz===cz&&this.radius===r)return;this.cx=cx;this.cz=cz;this.radius=r;
   const want=new Set();const pending=[];
   for(let a=cx-r;a<=cx+r;a++)for(let b=cz-r;b<=cz+r;b++){const key=`${a}:${b}`;want.add(key);if(!this.chunks.has(key))pending.push([a,b]);}
@@ -164,17 +166,22 @@ export class WorldRenderer {
   const waterGeo=new T.PlaneGeometry(CHUNK,CHUNK);disposable.push(waterGeo);const water=new T.Mesh(waterGeo,materials.water||(materials.water=new T.MeshStandardMaterial({color:0x4c918d,roughness:.4,metalness:.1,transparent:true,opacity:.91})));water.rotation.x=-Math.PI/2;water.position.set((cx+.5)*CHUNK,WATER,(cz+.5)*CHUNK);water.receiveShadow=true;group.add(water);
   // Roads cross river channels on modular freight bridges.
   const bridgePlaces=new Set();for(const [a,b]of segments){const d=Math.hypot(b.x-a.x,b.z-a.z),n=Math.ceil(d/7);for(let i=0;i<n;i++){const t=(i+.5)/n,x=a.x+(b.x-a.x)*t,z=a.z+(b.z-a.z)*t;if(x<cx*CHUNK||x>=(cx+1)*CHUNK||z<cz*CHUNK||z>=(cz+1)*CHUNK||waterDistance(x,z)>22)continue;const key=`${Math.round(x/6)}:${Math.round(z/6)}`;if(bridgePlaces.has(key))continue;bridgePlaces.add(key);const deck=mesh(geos.box,mat('bridge',0x778c94),x,WATER+.65,z,9,.7,8);deck.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);group.add(deck);}}
-  // Two painted tree sprites, drawn in batches with Y locked in the vertex shader.
+  // Branching meshes are grown once per archetype and instanced across the chunk.
   this.getFoliage();
-  const nodes=resourcesFor(cx,cz),decorBatches=[],layout=foliageFor(cx,cz);
+  const nodes=resourcesFor(cx,cz),decorBatches=[],alienBatches=[],layout=foliageFor(cx,cz);
   const addBatch=(material,items,decor=false)=>{const result=createBillboardBatch(material,items);group.add(result.batch);disposable.push(result.batch);if(decor)decorBatches.push({...result,items});return result;};
-  for(let variant=0;variant<2;variant++){const trees=nodes.filter(n=>n.kind==='wood'&&(hash(cx,cz,1000+Number(n.id.split(':').at(-1)))<.5?0:1)===variant).map(n=>({...n,height:13+(n.scale-.75)/.7*1.5,width:13+(n.scale-.75)/.7*1.5})),{batch,matrices}=addBatch(this.foliage.trees[variant],trees);trees.forEach((n,i)=>{const entry={...n,instanced:true,instances:[[batch,i,matrices[i]]],occupied:false};this.nodes.set(n.id,entry);ids.push(n.id);});}
+  for(let variant=0;variant<3;variant++){
+   const trees=nodes.filter(n=>n.kind==='wood'&&Math.floor(hash(cx,cz,1000+Number(n.id.split(':').at(-1)))*3)===variant).map(n=>({...n,height:13+(n.scale-.75)/.7*1.5})),decor=layout.trees.filter(n=>n.variant===variant);
+   const lowDetail=Math.hypot((cx+.5)*CHUNK-this.player.x,(cz+.5)*CHUNK-this.player.z)>CHUNK*1.65;
+   const {batch,matrices}=createAlienVegetationBatch([...trees,...decor],variant,lowDetail);batch.userData.variant=variant;batch.userData.lowDetail=lowDetail;group.add(batch);disposable.push(batch);alienBatches.push(batch);
+   trees.forEach((n,i)=>{this.nodes.set(n.id,{...n,instanced:true,instances:[[batch,i,matrices[i]]],occupied:false});ids.push(n.id);});
+   decorBatches.push({batch,items:decor,matrices,offset:trees.length});
+  }
   for(const n of nodes.filter(n=>n.kind==='stone')){const object=new T.Group();object.position.set(n.x,n.y,n.z);object.add(mesh(geos.rock,mat('silicate',0x87939e),0,.9,0,1.4*n.scale,1.2*n.scale,1.1*n.scale));if(containsPowerball(n))object.add(mesh(geos.sphere,glow('powerball',0xe8bf62),0,1.65,0,.48,.48,.48));group.add(object);this.nodes.set(n.id,{...n,object,occupied:false});ids.push(n.id);}
   for(const kind of ['berries','fiber']){const items=nodes.filter(n=>n.kind===kind).map(n=>({...n,height:kind==='berries'?2.6:1.7,width:kind==='berries'?2.8:2.2})),{batch,matrices}=addBatch(kind==='berries'?this.foliage.berries:this.foliage.grass,items);items.forEach((n,i)=>{this.nodes.set(n.id,{...n,instanced:true,instances:[[batch,i,matrices[i]]],occupied:false});ids.push(n.id);});}
-  for(let variant=0;variant<2;variant++)addBatch(this.foliage.trees[variant],layout.trees.filter(n=>n.variant===variant).map(n=>({...n,width:n.height})),true);
   addBatch(this.foliage.grass,layout.plants.filter(n=>n.kind==='grass'||n.kind==='shrub'),true);addBatch(this.foliage.flowers,layout.plants.filter(n=>n.kind==='flowers'),true);
 
-  this.scene.add(group);this.chunks.set(`${cx}:${cz}`,{group,terrain,ids,disposable,cx,cz,decorTrees:layout.trees,decorBatches});this.refreshChunkCollision(this.chunks.get(`${cx}:${cz}`));
+  this.scene.add(group);this.chunks.set(`${cx}:${cz}`,{group,terrain,ids,disposable,cx,cz,decorTrees:layout.trees,decorBatches,alienBatches});this.refreshChunkCollision(this.chunks.get(`${cx}:${cz}`));
  }
  addVillage(s){const group=new T.Group();
   for(const [i,h]of villageHouses(s).entries()){const house=salvageHut(h.width,h.depth,i);house.position.set(h.x,s.y,h.z);house.rotation.y=h.rotation;group.add(house);}

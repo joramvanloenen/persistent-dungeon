@@ -21,7 +21,7 @@ Click/tap ground to walk, or use WASD/arrows. Hold **Shift** to run, **Space** t
 
 Most colonies have an induction fabrication bay. Approach its fabricator for the weapon catalog: **Vibroknife** (10 strikes), **Arc blade** (14), or **Breacher axe** (16). Pay the bay rental and materials once, heat an alloy blank for 6–9 seconds until orange, then transfer it to the forming press. Overheating ruins the blank. Hit each highlighted press square within two seconds; three mistakes require reheating. Replacement blanks are included in the rental. Completed equipment and unfinished jobs persist. Cancel a remote job from Planet transit if a session return leaves you away from its bay; its paid fee and materials are consumed. Calibration rigs let you practice; defeated security units yield credits and alloy.
 
-Habitat pods, modular housing, freight shuttles, recyclers, fabrication equipment, access locks, rocks, and tree trunks have collision footprints. Running uses swept movement; click navigation routes around obstacles. The supplied tree PNGs remain unchanged, face the camera around world Y, and stay between 13 and 14.5 units tall. Grasses and bushes remain soft.
+Habitat pods, modular housing, freight shuttles, recyclers, fabrication equipment, access locks, rocks, and alien plant trunks have collision footprints. Running uses swept movement; click navigation routes around obstacles. Branching vegetation is generated from tapered stems, dangling lianes, knobs, and seed pods, with three instanced silhouettes and biome colors. Distant chunks use simpler geometry. Grasses and small ground cover remain soft.
 
 ## Persistence status and compatibility
 
@@ -48,7 +48,8 @@ The 39 tests cover generation, migration, local and server reloads, shared resou
 - `src/rules.js`, `src/action-game.js`: shared validated state changes and recall.
 - `src/render.js`, `src/dungeon-render.js`: Three.js surface streaming and industrial facilities.
 - `src/scene-layout.js`, `src/world-collision.js`: shared obstacle placement and swept movement.
-- `src/foliage-billboards.js`: batched, Y-locked camera-facing painted foliage.
+- `src/alien-vegetation.js`: generated branching vegetation and instanced chunk meshes.
+- `src/foliage-billboards.js`: batched, Y-locked camera-facing small ground cover.
 - `src/main.js`, `src/map.js`, `src/forge-ui.js`, `src/fringe-ui.js`: controls, survey, fabrication, transit, and archive UI.
 - `src/storage.js`: local preview or configured backend adapter.
 - `backend/server.mjs`: Node/SQLite accounts and durable state.
