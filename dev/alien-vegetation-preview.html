@@ -7,7 +7,7 @@ import {alienPlantGeometry} from '../src/alien-vegetation.js?v=14';
 const canvas=document.querySelector('canvas'),ctx=canvas.getContext('2d'),tints={forest:0xb2d0b9,marsh:0x9dd1c2,desert:0xd8b69e,tundra:0xc6d0d5};let biome='forest';
 const camera=new T.PerspectiveCamera(42,1000/650,.1,120);camera.position.set(20,13,29);camera.lookAt(0,5.6,0);camera.updateMatrixWorld();camera.updateProjectionMatrix();
 const light=new T.Vector3(-.4,.85,.7).normalize(),a=new T.Vector3(),b=new T.Vector3(),c=new T.Vector3(),ab=new T.Vector3(),ac=new T.Vector3(),normal=new T.Vector3(),centroid=new T.Vector3();
-function draw(){ctx.fillStyle='#94aaa7';ctx.fillRect(0,0,1000,650);ctx.fillStyle='#748f86';ctx.beginPath();ctx.ellipse(500,570,400,42,0,0,Math.PI*2);ctx.fill();
+function draw(){ctx.fillStyle='#94aaa7';ctx.fillRect(0,0,1000,650);ctx.fillStyle='#738d85';for(let style=0;style<3;style++){const root=new T.Vector3((style-1)*8.7,0,style===1?-2:0).project(camera),x=(root.x*.5+.5)*1000,y=(-root.y*.5+.5)*650;ctx.beginPath();ctx.ellipse(x,y+3,31,8,0,0,Math.PI*2);ctx.fill();}
  const faces=[],tint=new T.Color(tints[biome]);for(let style=0;style<3;style++){
   const geo=alienPlantGeometry(style),points=geo.getAttribute('position'),colors=geo.getAttribute('color'),position=new T.Vector3((style-1)*8.7,0,style===1?-2:0);
   for(let i=0;i<points.count;i+=3){a.fromBufferAttribute(points,i).add(position);b.fromBufferAttribute(points,i+1).add(position);c.fromBufferAttribute(points,i+2).add(position);ab.subVectors(b,a);ac.subVectors(c,a);normal.crossVectors(ab,ac).normalize();centroid.copy(a).add(b).add(c).multiplyScalar(1/3);
