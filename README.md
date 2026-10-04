@@ -55,3 +55,7 @@ The 39 tests cover generation, migration, local and server reloads, shared resou
 - `backend/schema.sql`, `supabase/functions/world/index.ts`: transactional Supabase backend.
 
 Permanent mechanics should use validated actions, atomic state updates, and append-only events. Preserve the seed and identifiers when adding construction or new planetary systems. Three.js and the optional Supabase client are bundled locally under their licenses. Pages publishes the root of `main` with relative asset paths and `.nojekyll`.
+
+## Reclaimed shelter models
+
+Colony buildings and the owned pod are assembled from recovered rocket stages and freight hardware. Three deterministic silhouettes use horizontal booster hulls, upright escape stages, or crashed cargo capsules. Each has a welded front pressure lock, exposed electronic cabinets and power cables, solar salvage, and an antenna. The personal pod adds a spent auxiliary booster. Smaller components switch off at a distance so phone rendering stays responsive. All houses retain the same plots and collision footprints; old saved homes and doors remain in place. `dev/salvage-preview.html` projects the actual mesh geometry for inspecting these parts without WebGL.
