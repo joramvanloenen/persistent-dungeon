@@ -1,69 +1,70 @@
 import * as T from '../vendor/three.module.js';
 
-// Three reusable plant archetypes are grown once, then instanced per chunk.
-// This keeps the dense forest to three draw calls rather than one per stem.
-const archetypes=[[],[]];
-const material=new T.MeshStandardMaterial({vertexColors:true,roughness:.96,metalness:0,side:T.DoubleSide,flatShading:true});
-const biomeTint={
- forest:0xb2d0b9,meadow:0xc5d8ab,marsh:0x9dd1c2,
- highlands:0xc1bec1,desert:0xd8b69e,tundra:0xc6d0d5
-};
-
-function grow(variant,lowDetail=false){
- let seed=(variant+1)*182761;const rnd=()=>{seed=(Math.imul(seed,1664525)+1013904223)>>>0;return seed/4294967296;};
- const positions=[],colors=[];
- const shade={bark:new T.Color(0x798e80),inner:new T.Color(0x596f6c),vine:new T.Color(0x608a72),knob:new T.Color(0xb49b76),pod:new T.Color(0xe4aa83),seam:new T.Color(0x4e6a67)};
- function triangle(a,b,c,color){for(const p of [a,b,c]){positions.push(p.x,p.y,p.z);colors.push(color.r,color.g,color.b);}}
- function tube(points,radii,sides,color){
-  const rings=points.map((p,i)=>{const tangent=(i===0?points[1].clone().sub(p):i===points.length-1?p.clone().sub(points[i-1]):points[i+1].clone().sub(points[i-1])).normalize();
-   const side=new T.Vector3().crossVectors(tangent,new T.Vector3(0,0,1));if(side.lengthSq()<.001)side.set(1,0,0);side.normalize();const other=new T.Vector3().crossVectors(tangent,side).normalize();
-   return Array.from({length:sides},(_,j)=>p.clone().addScaledVector(side,Math.cos(j*2*Math.PI/sides)*radii[i]).addScaledVector(other,Math.sin(j*2*Math.PI/sides)*radii[i]));});
-  for(let i=1;i<rings.length;i++)for(let j=0;j<sides;j++){const k=(j+1)%sides;triangle(rings[i-1][j],rings[i-1][k],rings[i][j],color);triangle(rings[i-1][k],rings[i][k],rings[i][j],color);}
-  for(let j=1;j<sides-1;j++){triangle(rings[0][0],rings[0][j+1],rings[0][j],color);triangle(rings.at(-1)[0],rings.at(-1)[j],rings.at(-1)[j+1],color);}
+// All species share one opaque vertex-color material. No textures or per-part meshes.
+export const PLANT_FAMILIES=[
+ {name:'Lantern spire',height:13,canopy:true},{name:'Hanging arch',height:12,canopy:true},
+ {name:'Knob fan',height:9,canopy:true},{name:'Sail umbrella',height:18,canopy:true},
+ {name:'Coiled tendril',height:7,canopy:true},{name:'Bladder mast',height:15,canopy:true},
+ {name:'Shard rosette',height:1.2},{name:'Tube coral',height:2.4},
+ {name:'Spore buttons',height:.8},{name:'Nutrient nest',height:1.6},{name:'Ribbon reeds',height:2.8}
+];
+const cache=[[],[]],material=new T.MeshStandardMaterial({vertexColors:true,roughness:.95,side:T.DoubleSide,flatShading:true});
+export const BIOME_TINT={forest:0xb2d0b9,meadow:0xc5d8ab,marsh:0x9dd1c2,highlands:0xc1bec1,desert:0xd8b69e,tundra:0xc6d0d5};
+const palette={stem:0x6f918a,dark:0x405f68,pod:0xeaaa85,knot:0xbba676,sail:0x93bab0,edge:0xb0a1b3};
+const v=(x,y,z)=>new T.Vector3(x,y,z);
+function grow(family,far){
+ const positions=[],colors=[],colorCache={};
+ function tri(a,b,c,tone){const col=colorCache[tone]??=new T.Color(palette[tone]);for(const p of [a,b,c]){positions.push(p.x,p.y,p.z);colors.push(col.r,col.g,col.b);}}
+ function tube(points,radii,sides=3,tone='stem'){
+  const rings=points.map((p,i)=>{const direction=points[Math.min(i+1,points.length-1)].clone().sub(points[Math.max(0,i-1)]).normalize(),u=new T.Vector3().crossVectors(direction,v(0,0,1));if(u.lengthSq()<.001)u.set(1,0,0);u.normalize();const w=new T.Vector3().crossVectors(direction,u).normalize();return Array.from({length:sides},(_,j)=>p.clone().addScaledVector(u,Math.cos(j*2*Math.PI/sides)*radii[i]).addScaledVector(w,Math.sin(j*2*Math.PI/sides)*radii[i]));});
+  for(let i=1;i<rings.length;i++)for(let j=0;j<sides;j++){const k=(j+1)%sides;tri(rings[i-1][j],rings[i-1][k],rings[i][j],tone);tri(rings[i-1][k],rings[i][k],rings[i][j],tone);}
  }
- function bulb(center,size,color){
-  const top=center.clone().add(new T.Vector3(0,size.y,0)),bottom=center.clone().add(new T.Vector3(0,-size.y,0)),rings=[];
-  for(const y of [-.5,.45])rings.push(Array.from({length:5},(_,i)=>center.clone().add(new T.Vector3(Math.cos(i*2*Math.PI/5)*size.x*(y<0?.8:1),y*size.y,Math.sin(i*2*Math.PI/5)*size.z*(y<0?.8:1)))));
-  for(let i=0;i<5;i++){const j=(i+1)%5;triangle(top,rings[1][i],rings[1][j],color);triangle(rings[1][i],rings[0][i],rings[1][j],color);triangle(rings[1][j],rings[0][i],rings[0][j],color);triangle(bottom,rings[0][j],rings[0][i],color);}
- }
- const v=(x,y,z)=>new T.Vector3(x,y,z),arms=variant===0?5:variant===1?4:6,
-  trunk=variant===1?[v(0,0,0),v(.23,3,-.18),v(-.18,6,.27),v(.38,9,-.1),v(.1,12,.1)]:variant===2?[v(0,0,0),v(-.16,3,.13),v(.22,5.8,-.15),v(-.3,8.7,.18),v(-.12,11.2,0)]:[v(0,0,0),v(.17,3,.1),v(-.25,6,.03),v(.3,9,-.2),v(0,11.6,0)];
- tube(trunk,[.47,.39,.31,.2,.045],lowDetail?4:6,shade.bark);
- for(let a=0;a<(lowDetail?Math.min(arms,4):arms);a++){
-  const angle=a*Math.PI*2/arms+(variant*.5),spread=variant===1?4.5:variant===2?4.3:3.2,
-   level=variant===1?4.7+(a%2)*1.25:variant===2?3.7+(a%3)*1.05:4.2+(a%3)*1.3,
-   dir=v(Math.cos(angle),0,Math.sin(angle)),base=v(.1,level,0),mid=base.clone().addScaledVector(dir,spread*.43).add(v(0,variant===1?3.1:1.5+(a%2)*.4,0)),
-   tip=base.clone().addScaledVector(dir,spread*(.82+rnd()*.25)).add(v(0,variant===1?.9+(a%2)*.6:variant===2?2.6+(a%3)*.45:3.8+(a%3)*.52,0));
-  tube([base,mid,tip],[.25,.15,.035],lowDetail?3:5,shade.inner);
-  // Secondary feelers rise at odd angles; suspended tendrils sag below the forks.
-  const fork=mid.clone().addScaledVector(dir,spread*.2).add(v(0,.95,0));
-  if(!lowDetail)tube([mid,fork,fork.clone().add(v((rnd()-.5)*.9,1.2,(rnd()-.5)*.9))],[.12,.075,.015],4,shade.bark);
-  const coil=tip.clone().addScaledVector(dir,.55).add(v(0,-.38,0)),hang=tip.clone().addScaledVector(dir,.15).add(v((rnd()-.5)*.3,-1.55,(rnd()-.5)*.3));
-  const end=hang.clone().add(v((rnd()-.5)*.8,-1.15-rnd()*.9,(rnd()-.5)*.8));
-  if(!lowDetail||a%2===0)tube([tip,coil,hang,end],[.065,.055,.04,.015],3,shade.vine);
-  if(!lowDetail||a%2===0)bulb(end.clone().add(v(0,-.35,0)),v(.27+rnd()*.12,.52+rnd()*.2,.25+rnd()*.1),shade.pod);
-  if(!lowDetail||a%2===0)bulb(mid.clone().add(v(0,-.1,0)),v(.28,.24,.28),shade.knob);
-  if(!lowDetail&&variant===2&&a%2===0)bulb(end.clone().add(v(.35,-.1,.12)),v(.18,.4,.2),shade.pod);
-  for(let j=0;j<(lowDetail?0:2);j++){
-   const knot=base.clone().lerp(mid,.3+j*.33);bulb(knot,v(.14,.16,.14),shade.knob);
+ // An octahedron is an eight-triangle seed pod, swelling, or spore sac.
+ function pod(p,s,tone='pod'){const ring=[v(s[0],0,0),v(0,0,s[2]),v(-s[0],0,0),v(0,0,-s[2])].map(q=>q.add(p)),top=p.clone().add(v(0,s[1],0)),bottom=p.clone().add(v(0,-s[1],0));for(let i=0;i<4;i++){tri(top,ring[i],ring[(i+1)%4],tone);tri(bottom,ring[(i+1)%4],ring[i],tone);}}
+ function blade(root,tip,width,tone='sail'){const side=v(tip.z-root.z,0,root.x-tip.x).normalize().multiplyScalar(width),mid=root.clone().lerp(tip,.6);tri(root,mid.clone().add(side),tip,tone);tri(root,tip,mid.clone().sub(side),tone);}
+ if(family<3){
+  const tall=PLANT_FAMILIES[family].height;
+  tube([v(0,0,0),v(.12,tall*.36,0),v(-.25,tall*.7,.12),v(.15,tall-.65,0)],[.45,.34,.2,.03],far?3:4);
+  const arms=far?3:4;
+  for(let i=0;i<arms;i++){const a=i*2*Math.PI/arms+.4,dir=v(Math.cos(a),0,Math.sin(a)),base=v(0,tall*(.32+(i%2)*.12),0),mid=base.clone().addScaledVector(dir,family===1?2.1:1.5).add(v(0,family===1?4:1.8,0)),tip=base.clone().addScaledVector(dir,family===2?3.8:3).add(v(0,family===1?1.6:3,0));
+   tube([base,mid,tip],[.22,.12,.02],3);
+   const end=tip.clone().addScaledVector(dir,.35).add(v(0,-2.2,0));tube([tip,tip.clone().addScaledVector(dir,.5).add(v(0,-.6,0)),end],[.045,.035,.01],3,'dark');pod(end,[.36,.6,.32]);
+   if(!far){pod(mid,[.32,.32,.3],'knot');if(family===2)pod(end.clone().add(v(.45,.15,0)),[.24,.4,.23]);}
   }
+  pod(v(.15,tall-.65,0),[.43,.65,.43]);
+ }else if(family===3){
+  tube([v(0,0,0),v(.15,7,.1),v(-.4,13,0),v(.2,17,0)],[.45,.36,.25,.06],4);
+  const n=far?4:6;for(let i=0;i<n;i++){const a=i*2*Math.PI/n,r=4.6,tip=v(Math.cos(a)*r,14+(i%2),Math.sin(a)*r);blade(v(.2,17,0),tip,1.3,i%2?'sail':'edge');if(!far){tube([tip,tip.clone().add(v(.1,-3,0))],[.04,.01],3,'dark');pod(tip.clone().add(v(.1,-3,0)),[.25,.5,.25]);}}
+  pod(v(.2,17.55,0),[.38,.45,.38],'knot');
+ }else if(family===4){
+  const points=[v(0,0,0),v(0,2.2,0)],n=far?5:9;for(let i=0;i<=n;i++){const a=i/n*Math.PI*1.65;points.push(v(Math.sin(a)*1.75,4.5-Math.cos(a)*2.1,Math.sin(a*.5)*.4));}
+  tube(points,points.map((_,i)=>.4*(1-i/(points.length+1))+.025),far?3:4);pod(points.at(-1),[.55,.62,.48],'edge');if(!far)for(let i=3;i<points.length;i+=3)pod(points[i],[.28,.28,.25],'knot');
+ }else if(family===5){
+  tube([v(0,0,0),v(.1,5,0),v(-.1,10,.15),v(.1,14,0)],[.45,.28,.18,.03],4);
+  for(let i=0;i<(far?3:5);i++){const y=3.3+i*(far?4:2.45),a=i*2.4,p=v(Math.cos(a)*.7,y,Math.sin(a)*.7);tube([v(0,y-1,0),p],[.14,.06],3);pod(p,[.9,1.05,.75],i%2?'edge':'pod');}pod(v(.1,14.6,0),[.4,.4,.4]);
+ }else if(family===6){
+  for(let i=0;i<(far?4:7);i++){const a=i*2.4,r=.65+(i%3)*.16;blade(v(0,.03,0),v(Math.cos(a)*r,.6+(i%3)*.3,Math.sin(a)*r),.22,i%2?'sail':'edge');}pod(v(0,.25,0),[.16,.25,.16],'knot');
+ }else if(family===7){
+  for(let i=0;i<(far?2:4);i++){const a=i*2.4,x=Math.cos(a)*.35,z=Math.sin(a)*.35,h=1.2+(i%3)*.5;const end=v(x*2,h,z*2);tube([v(x,0,z),v(x*1.4,h*.55,z*1.4),end],[.23,.28,.3],3,'edge');tri(end.clone().add(v(-.2,-.02,0)),end.clone().add(v(.1,-.02,.19)),end.clone().add(v(.1,-.02,-.19)),'dark');}
+ }else if(family===8){
+  for(let i=0;i<(far?2:4);i++){const a=i*2.4,p=v(Math.cos(a)*.4,.22+(i%2)*.2,Math.sin(a)*.4);pod(p,[.33,.22,.34],i%2?'pod':'edge');}
+ }else if(family===9){
+  for(let i=0;i<(far?2:4);i++){const a=i*2.4,end=v(Math.cos(a)*.65,.7+(i%2)*.45,Math.sin(a)*.65);blade(v(0,0,0),end,.22,'stem');pod(end,[.26,.36,.23]);}
+ }else{
+  for(let i=0;i<(far?3:6);i++){const a=i*2.4,root=v(Math.cos(a)*.3,0,Math.sin(a)*.3),tip=v(root.x+.3*Math.sin(a),1.2+(i%3)*.6,root.z+.4);blade(root,tip,.13,i%2?'sail':'stem');}
  }
- if(!lowDetail)for(const y of [2.25,4.9,7.15]){
-  bulb(v(.24*Math.sin(y*2),y,.27*Math.cos(y*1.5)),v(.43,.37,.36),shade.knob);
-  bulb(v(-.2*Math.sin(y),y+.16,-.3*Math.cos(y)),v(.19,.22,.21),shade.inner);
- }
- bulb(trunk.at(-1),v(.45,.72,.39),shade.pod);
- if(!lowDetail)tube([v(.1,3.2,0),v(-.5,2.4,.36),v(-.72,1.5,.62)],[.08,.06,.012],3,shade.vine);
- const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();geometry.computeBoundingSphere();
- geometry.userData.proceduralAlienPlant=true;return geometry;
+ const geometry=new T.BufferGeometry();geometry.setAttribute('position',new T.Float32BufferAttribute(positions,3));geometry.setAttribute('color',new T.Float32BufferAttribute(colors,3));geometry.computeVertexNormals();geometry.computeBoundingSphere();geometry.userData.proceduralAlienPlant=true;return geometry;
 }
-
-export function alienPlantGeometry(variant,lowDetail=false){return archetypes[+lowDetail][variant]??=grow(variant,lowDetail);}
-export function createAlienVegetationBatch(items,variant,lowDetail=false){
- const batch=new T.InstancedMesh(alienPlantGeometry(variant,lowDetail),material,items.length),temp=new T.Object3D(),matrices=[];
- batch.name=`branching-alien-vegetation-${variant}`;batch.userData.alienVegetation=true;batch.castShadow=false;batch.receiveShadow=true;
- items.forEach((n,i)=>{const h=(n.height||13)/13,rot=((n.x*13.37+n.z*7.91)%6.283+6.283)%6.283;
-  temp.position.set(n.x,n.y,n.z);temp.rotation.set(0,rot,0);temp.scale.set(h,h,h);temp.updateMatrix();batch.setMatrixAt(i,temp.matrix);matrices.push(temp.matrix.clone());
-  batch.setColorAt(i,new T.Color(biomeTint[n.biome]||biomeTint.meadow));});
+export function alienPlantGeometry(family,far=false){return cache[+far][family]??=grow(family,far);}
+function seed(n){let h=Math.imul(Math.round(n.x*17),374761393)^Math.imul(Math.round(n.z*19),668265263);h=Math.imul(h^(h>>>13),1274126177);return ((h^(h>>>16))>>>0)/4294967296;}
+const canopyByBiome={forest:[0,1,2,3,5],meadow:[0,2,3,4],marsh:[1,3,4,5],desert:[2,4,5],highlands:[0,2,4],tundra:[0,4,5]};
+export function alienPlacement(n,role='tree'){
+ const r=seed(n),list=role==='tree'?(canopyByBiome[n.biome]||canopyByBiome.meadow):role==='berries'?[9]:role==='fiber'?[10]:role==='shrub'?[7,9]:role==='flowers'?[8,9]:[6,8,10],family=list[Math.floor(r*list.length)],base=PLANT_FAMILIES[family];
+ return {...n,family,height:base.height*(.78+r*.4),widthScale:role==='tree'?(n.scale||1):.75+r*.55};
+}
+export function createAlienVegetationBatch(items,family,far=false){
+ const batch=new T.InstancedMesh(alienPlantGeometry(family,far),material,items.length),temp=new T.Object3D(),matrices=[];
+ batch.name=`alien-${PLANT_FAMILIES[family].name.toLowerCase().replaceAll(' ','-')}`;batch.userData={alienVegetation:true,variant:family,lowDetail:far};batch.receiveShadow=true;
+ items.forEach((n,i)=>{temp.position.set(n.x,n.y,n.z);temp.rotation.set(0,seed(n)*Math.PI*2,0);temp.scale.set(n.widthScale||1,(n.height||PLANT_FAMILIES[family].height)/PLANT_FAMILIES[family].height,n.widthScale||1);temp.updateMatrix();batch.setMatrixAt(i,temp.matrix);matrices.push(temp.matrix.clone());batch.setColorAt(i,new T.Color(BIOME_TINT[n.biome]||BIOME_TINT.meadow));});
  batch.instanceMatrix.needsUpdate=true;if(batch.instanceColor)batch.instanceColor.needsUpdate=true;batch.computeBoundingSphere();return {batch,matrices};
 }

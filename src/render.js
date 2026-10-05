@@ -9,8 +9,7 @@ import {equippedWeapon,guardiansFor,dummyFor} from './action-game.js?v=11';
 import {advanceMotion,beginJump} from './action-motion.js?v=6';
 import {villageHouses,homeObstacles,villageObstacles,ruinObstacles,ruinRubble,resourceObstacle,caveObstacles,foliageFor,outsideHome,circle} from './scene-layout.js?v=15';
 import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=11';
-import {loadFoliageMaterials,createBillboardBatch,createBillboardMaterial} from './foliage-billboards.js?v=15';
-import {createAlienVegetationBatch,alienPlantGeometry} from './alien-vegetation.js?v=14';
+import {createAlienVegetationBatch,alienPlantGeometry,alienPlacement,PLANT_FAMILIES} from './alien-vegetation.js?v=16';
 import {salvageHut} from './salvage-huts.js?v=12';
 const materials={};const mat=(name,color)=>materials[name]||(materials[name]=new T.MeshStandardMaterial({color,roughness:1,flatShading:true}));
 const geos={box:new T.BoxGeometry(1,1,1),trunk:new T.CylinderGeometry(.25,.45,1,5),pine:new T.ConeGeometry(1,1,6),rock:new T.IcosahedronGeometry(1,0),sphere:new T.IcosahedronGeometry(1,1),grass:new T.ConeGeometry(1,1,3)};
@@ -27,7 +26,7 @@ export class WorldRenderer {
  constructor(container,{onWalk,onFrame}){
   this.container=container;this.onWalk=onWalk;this.onFrame=onFrame;this.chunks=new Map();this.nodes=new Map();this.npcs=new Map();this.villages=new Map();this.depleted=new Set();this.others=new Map();this.frame=0;this.keys={};this.player=null;this.target=null;this.yaw=.15;this.zoom=1;this.touchPoints=new Map();this.terrain=[];this.quality='balanced';this.ruins=new Map();this.homes=new Map();this.cave=null;this.caveModel=null;this.path=[];this.exploration={};
   this.pitch=CAMERA_LIMITS.defaultPitch;this.cameraOrbit={yaw:this.yaw,pitch:this.pitch};this.cameraFocus=new T.Vector3();this.projectedLabel=new T.Vector3();
-  this.collision=new CollisionIndex();this.foliage=loadFoliageMaterials();
+  this.collision=new CollisionIndex();
   this.motion={stamina:100,height:0,velocity:0,swing:0};this.runToggled=false;this.opponents=new Map();
   this.scene=new T.Scene();this.scene.background=new T.Color(0x9aada0);this.scene.fog=new T.Fog(0x9aada0,440,950);
   this.camera=new T.PerspectiveCamera(40,1,.3,1500);
@@ -79,17 +78,17 @@ export class WorldRenderer {
  attackTarget(weapon){let best=null,distance=weapon.reach;for(const foe of this.opponents.values()){if(!foe.object.visible)continue;const dx=foe.x-this.player.x,dz=foe.z-this.player.z,d=Math.hypot(dx,dz),dot=d?(dx*Math.sin(this.hero.rotation.y)+dz*Math.cos(this.hero.rotation.y))/d:1;if(d<=distance&&dot>.25&&(!this.cave||cavePathClear(this.cave,this.player,foe))){best=foe;distance=d;}}return best;}
  setHomes(homes){
   if(!homes)return;this.collision??=new CollisionIndex();const stamp=homes.filter(Boolean).map(h=>`${h.id}:${h.x}:${h.z}:${h.rotation}`).sort().join("|");const changed=stamp!==this.homeStamp;this.homeStamp=stamp;this.homeList=homes;const wanted=new Set(homes.filter(Boolean).map(h=>h.id));
-  for(const [id,h]of this.homes)if(!wanted.has(id)){this.scene.remove(h.group);h.label.remove();this.homes.delete(id);this.collision.remove(id);}
+  for(const [id,h]of this.homes)if(!wanted.has(id)){this.scene.remove(h.group);h.group.traverse(o=>{if(o.isInstancedMesh)o.dispose();});h.label.remove();this.homes.delete(id);this.collision.remove(id);}
   for(const h of homes.filter(Boolean)){if(!this.homes.has(h.id))this.addHome(h);const item=this.homes.get(h.id);item.ownerName=h.ownerName;item.label.textContent=h.owner===this.player?.id?'Your landing pod':`${h.ownerName}'s pod`;item.group.visible=!this.cave;if(changed)this.collision.replace(h.id,homeObstacles(h));}if(changed)for(const chunk of this.chunks.values())this.refreshChunkCollision(chunk);
  }
  setWalkTarget(pos){const path=findSurfacePath(this.player,pos,(a,b)=>this.pathClear(a,b),this.cave?{step:1.4,margin:12,limit:22000}:{});if(!path)return false;this.path=path;this.target=this.path.shift();return true;}
- getFoliage(){return this.foliage??={grass:createBillboardMaterial(new T.Texture()),berries:createBillboardMaterial(new T.Texture()),flowers:createBillboardMaterial(new T.Texture())};}
+
  addHome(h){
   const g=new T.Group();g.position.set(h.x,h.y,h.z);g.rotation.y=h.rotation;const own=h.owner===this.player?.id;
   g.add(salvageHut(9,8,0,own));
   for(const x of [-4.7,4.7]){g.add(mesh(geos.box,mat('powerRail',0x526973),x,.6,6.2,.2,1.2,6));for(let i=0;i<4;i++)g.add(mesh(geos.box,mat('powerRail',0x526973),x,.75,4+i*1.5,.25,1.5,.25));}
   g.add(mesh(geos.box,mat('landingApron',0x7e8d8b),0,.12,6,3.2,.14,4),mesh(geos.box,mat('cargoContainer',0x697b7e),-5.8,.8,0,1.4,1.6,1.4));
-  this.getFoliage();g.add(createBillboardBatch(this.foliage.flowers,Array.from({length:7},(_,i)=>({x:5.8+(i%2)*.6,z:-2+i*.7,y:0,width:1.2,height:1.2}))).batch);
+  g.add(createAlienVegetationBatch(Array.from({length:7},(_,i)=>({x:5.8+(i%2)*.6,z:-2+i*.7,y:0,height:.7+(i%3)*.2,widthScale:.7})),8).batch);
   const label=document.createElement('div');label.className='world-label home-label';label.textContent=own?'Your landing pod':`${h.ownerName}'s pod`;this.labelContainer.append(label);this.homes.set(h.id,{...h,group:g,label});g.visible=!this.cave;this.scene.add(g);this.collision??=new CollisionIndex();this.collision.replace(h.id,homeObstacles(h));
  }
  addRuin(r){
@@ -97,7 +96,7 @@ export class WorldRenderer {
   g.add(mesh(geos.box,stone,0,.15,0,18,.3,18),mesh(geos.box,stone,-3,3,0,1.4,6,1.6),mesh(geos.box,stone,3,3,0,1.4,6,1.6),mesh(geos.box,stone,0,6,0,7.6,1.4,1.7),mesh(geos.box,dark,0,2.65,-.25,4.6,5.3,.5),mesh(geos.box,glow('lockLight',0x68b6bd),0,5.4,.18,3.4,.16,.12));for(const x of [-2,2])for(let i=0;i<3;i++)g.add(mesh(geos.box,mat('lockHazard',0xd19a56),x,1+i*.6,.12,.15,.28,.1));
   for(let i=0;i<6;i++)g.add(mesh(geos.box,stone,0,.25-i*.1,5-i*.7,4.5,.25,.8));
   for(const n of ruinRubble(r))g.add(mesh(geos.rock,stone,n.x-r.x,.7,n.z-r.z,1.8,1.4,1.5));
-  for(const x of [-7,7])g.add(mesh(geos.box,stone,x,2.2,-5,1.1,4.4,1.1));this.getFoliage();g.add(createBillboardBatch(this.foliage.grass,[-7,7].map(x=>({x:x+.25,z:-4.3,y:0,width:.9,height:3.4}))).batch);
+  for(const x of [-7,7])g.add(mesh(geos.box,stone,x,2.2,-5,1.1,4.4,1.1));g.add(createAlienVegetationBatch([-7,7].map(x=>({x:x+.25,z:-4.3,y:0,height:2.8,widthScale:.9})),10).batch);
   const label=document.createElement('div');label.className='world-label entrance-label';this.labelContainer.append(label);this.ruins.set(r.id,{...r,group:g,label});this.scene.add(g);this.collision??=new CollisionIndex();this.collision.replace(r.id,ruinObstacles(r));
  }
  setDepleted(ids){this.depleted=new Set(ids);for(const [id,n]of this.nodes)this.showNode(n,!this.depleted.has(id));for(const chunk of this.chunks.values())this.refreshChunkCollision(chunk);if(this.caveModel){for(const [id,n]of this.caveModel.nodes)n.object.visible=!this.depleted.has(id);this.caveCollision=new CollisionIndex();this.caveCollision.replace('cave',caveObstacles(this.cave,this.depleted));}}
@@ -146,7 +145,7 @@ export class WorldRenderer {
   for(let a=cx-r;a<=cx+r;a++)for(let b=cz-r;b<=cz+r;b++){const key=`${a}:${b}`;want.add(key);if(!this.chunks.has(key))pending.push([a,b]);}
   pending.sort((a,b)=>Math.hypot(a[0]-cx,a[1]-cz)-Math.hypot(b[0]-cx,b[1]-cz));for(const [a,b]of pending)this.addChunk(a,b);
   for(const [key,chunk]of this.chunks)if(!want.has(key)){this.scene.remove(chunk.group);for(const m of chunk.disposable)m.dispose();for(const id of chunk.ids)this.nodes.delete(id);this.chunks.delete(key);this.collision?.remove(`chunk:${chunk.cx}:${chunk.cz}`);}
-  this.terrain=[...this.chunks.values()].map(c=>c.terrain);for(const [id,ruin]of this.ruins)if(Math.hypot(ruin.x-this.player.x,ruin.z-this.player.z)>CHUNK*(r+2)){this.scene.remove(ruin.group);ruin.label.remove();this.ruins.delete(id);this.collision?.remove(id);}
+  this.terrain=[...this.chunks.values()].map(c=>c.terrain);for(const [id,ruin]of this.ruins)if(Math.hypot(ruin.x-this.player.x,ruin.z-this.player.z)>CHUNK*(r+2)){this.scene.remove(ruin.group);ruin.group.traverse(o=>{if(o.isInstancedMesh)o.dispose();});ruin.label.remove();this.ruins.delete(id);this.collision?.remove(id);}
   const rx=Math.floor(this.player.x/REGION),rz=Math.floor(this.player.z/REGION),vWant=new Set();
   for(let a=rx-1;a<=rx+1;a++)for(let b=rz-1;b<=rz+1;b++){const ruin=ruinFor(a,b);if(Math.hypot(ruin.x-this.player.x,ruin.z-this.player.z)<CHUNK*(r+1)&&!this.ruins.has(ruin.id))this.addRuin(ruin);const s=settlement(a,b);if(Math.hypot(s.x-this.player.x,s.z-this.player.z)<CHUNK*3.2){vWant.add(s.id);if(!this.villages.has(s.id))this.addVillage(s);}}
   for(const [id,v]of this.villages)if(!vWant.has(id)){this.scene.remove(v.group);v.label.remove();for(const npc of v.npcs){this.npcs.get(npc.id)?.label.remove();this.npcs.delete(npc.id);}this.villages.delete(id);this.collision?.remove(id);}
@@ -166,21 +165,18 @@ export class WorldRenderer {
   const waterGeo=new T.PlaneGeometry(CHUNK,CHUNK);disposable.push(waterGeo);const water=new T.Mesh(waterGeo,materials.water||(materials.water=new T.MeshStandardMaterial({color:0x4c918d,roughness:.4,metalness:.1,transparent:true,opacity:.91})));water.rotation.x=-Math.PI/2;water.position.set((cx+.5)*CHUNK,WATER,(cz+.5)*CHUNK);water.receiveShadow=true;group.add(water);
   // Roads cross river channels on modular freight bridges.
   const bridgePlaces=new Set();for(const [a,b]of segments){const d=Math.hypot(b.x-a.x,b.z-a.z),n=Math.ceil(d/7);for(let i=0;i<n;i++){const t=(i+.5)/n,x=a.x+(b.x-a.x)*t,z=a.z+(b.z-a.z)*t;if(x<cx*CHUNK||x>=(cx+1)*CHUNK||z<cz*CHUNK||z>=(cz+1)*CHUNK||waterDistance(x,z)>22)continue;const key=`${Math.round(x/6)}:${Math.round(z/6)}`;if(bridgePlaces.has(key))continue;bridgePlaces.add(key);const deck=mesh(geos.box,mat('bridge',0x778c94),x,WATER+.65,z,9,.7,8);deck.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);group.add(deck);}}
-  // Branching meshes are grown once per archetype and instanced across the chunk.
-  this.getFoliage();
+  // A single instance per complete plant; collectible and decorative items share batches.
   const nodes=resourcesFor(cx,cz),decorBatches=[],alienBatches=[],layout=foliageFor(cx,cz);
-  const addBatch=(material,items,decor=false)=>{const result=createBillboardBatch(material,items);group.add(result.batch);disposable.push(result.batch);if(decor)decorBatches.push({...result,items});return result;};
-  for(let variant=0;variant<3;variant++){
-   const trees=nodes.filter(n=>n.kind==='wood'&&Math.floor(hash(cx,cz,1000+Number(n.id.split(':').at(-1)))*3)===variant).map(n=>({...n,height:13+(n.scale-.75)/.7*1.5})),decor=layout.trees.filter(n=>n.variant===variant);
-   const lowDetail=Math.hypot((cx+.5)*CHUNK-this.player.x,(cz+.5)*CHUNK-this.player.z)>CHUNK*1.65;
-   const {batch,matrices}=createAlienVegetationBatch([...trees,...decor],variant,lowDetail);batch.userData.variant=variant;batch.userData.lowDetail=lowDetail;group.add(batch);disposable.push(batch);alienBatches.push(batch);
-   trees.forEach((n,i)=>{this.nodes.set(n.id,{...n,instanced:true,instances:[[batch,i,matrices[i]]],occupied:false});ids.push(n.id);});
-   decorBatches.push({batch,items:decor,matrices,offset:trees.length});
+  const resources=nodes.filter(n=>n.kind!=='stone').map(n=>alienPlacement(n,n.kind==='wood'?'tree':n.kind));
+  const decoration=[...layout.trees.map(n=>alienPlacement(n)),...layout.plants.map(n=>alienPlacement(n,n.kind))];
+  const lowDetail=Math.hypot((cx+.5)*CHUNK-this.player.x,(cz+.5)*CHUNK-this.player.z)>CHUNK*1.65;
+  for(let family=0;family<PLANT_FAMILIES.length;family++){
+   const collect=resources.filter(n=>n.family===family),decor=decoration.filter(n=>n.family===family);if(!collect.length&&!decor.length)continue;
+   const {batch,matrices}=createAlienVegetationBatch([...collect,...decor],family,lowDetail);group.add(batch);disposable.push(batch);alienBatches.push(batch);
+   collect.forEach((n,i)=>{this.nodes.set(n.id,{...n,instanced:true,instances:[[batch,i,matrices[i]]],occupied:false});ids.push(n.id);});
+   decorBatches.push({batch,items:decor,matrices,offset:collect.length});
   }
   for(const n of nodes.filter(n=>n.kind==='stone')){const object=new T.Group();object.position.set(n.x,n.y,n.z);object.add(mesh(geos.rock,mat('silicate',0x87939e),0,.9,0,1.4*n.scale,1.2*n.scale,1.1*n.scale));if(containsPowerball(n))object.add(mesh(geos.sphere,glow('powerball',0xe8bf62),0,1.65,0,.48,.48,.48));group.add(object);this.nodes.set(n.id,{...n,object,occupied:false});ids.push(n.id);}
-  for(const kind of ['berries','fiber']){const items=nodes.filter(n=>n.kind===kind).map(n=>({...n,height:kind==='berries'?2.6:1.7,width:kind==='berries'?2.8:2.2})),{batch,matrices}=addBatch(kind==='berries'?this.foliage.berries:this.foliage.grass,items);items.forEach((n,i)=>{this.nodes.set(n.id,{...n,instanced:true,instances:[[batch,i,matrices[i]]],occupied:false});ids.push(n.id);});}
-  addBatch(this.foliage.grass,layout.plants.filter(n=>n.kind==='grass'||n.kind==='shrub'),true);addBatch(this.foliage.flowers,layout.plants.filter(n=>n.kind==='flowers'),true);
-
   this.scene.add(group);this.chunks.set(`${cx}:${cz}`,{group,terrain,ids,disposable,cx,cz,decorTrees:layout.trees,decorBatches,alienBatches});this.refreshChunkCollision(this.chunks.get(`${cx}:${cz}`));
  }
  addVillage(s){const group=new T.Group();

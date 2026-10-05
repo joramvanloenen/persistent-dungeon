@@ -21,7 +21,7 @@ Click/tap ground to walk, or use WASD/arrows. Hold **Shift** to run, **Space** t
 
 Most colonies have an induction fabrication bay. Approach its fabricator for the weapon catalog: **Vibroknife** (10 strikes), **Arc blade** (14), or **Breacher axe** (16). Pay the bay rental and materials once, heat an alloy blank for 6–9 seconds until orange, then transfer it to the forming press. Overheating ruins the blank. Hit each highlighted press square within two seconds; three mistakes require reheating. Replacement blanks are included in the rental. Completed equipment and unfinished jobs persist. Cancel a remote job from Planet transit if a session return leaves you away from its bay; its paid fee and materials are consumed. Calibration rigs let you practice; defeated security units yield credits and alloy.
 
-Habitat pods, modular housing, freight shuttles, recyclers, fabrication equipment, access locks, rocks, and alien plant trunks have collision footprints. Running uses swept movement; click navigation routes around obstacles. Branching vegetation is generated from tapered stems, dangling lianes, knobs, and seed pods, with three instanced silhouettes and biome colors. Distant chunks use simpler geometry. Grasses and small ground cover remain soft.
+Habitat pods, modular housing, freight shuttles, recyclers, fabrication equipment, access locks, rocks, and alien plant trunks have collision footprints. Running uses swept movement; click navigation routes around obstacles. Branching vegetation is generated from tapered stems, dangling lianes, knobs, and seed pods, with eleven instanced families and biome colors. Canopy structures range from coiled tendrils to giant sail umbrellas; ground cover includes shard rosettes, tube coral, spore buttons, nutrient nests, and ribbon reeds. Near models use 102–224 triangles for canopy plants and 12–52 for ground cover; distant models use 6–122. Plant sizes vary deterministically by family and location. Ground cover remains soft.
 
 ## Persistence status and compatibility
 
@@ -49,7 +49,7 @@ The 39 tests cover generation, migration, local and server reloads, shared resou
 - `src/render.js`, `src/dungeon-render.js`: Three.js surface streaming and industrial facilities.
 - `src/scene-layout.js`, `src/world-collision.js`: shared obstacle placement and swept movement.
 - `src/alien-vegetation.js`: generated branching vegetation and instanced chunk meshes.
-- `src/foliage-billboards.js`: batched, Y-locked camera-facing small ground cover.
+- `dev/alien-vegetation-preview.html`: geometry catalogue with biome, LOD and triangle counts.
 - `src/main.js`, `src/map.js`, `src/forge-ui.js`, `src/fringe-ui.js`: controls, survey, fabrication, transit, and archive UI.
 - `src/storage.js`: local preview or configured backend adapter.
 - `backend/server.mjs`: Node/SQLite accounts and durable state.
