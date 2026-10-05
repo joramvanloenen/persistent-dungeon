@@ -10,7 +10,7 @@ import {equippedWeapon,guardiansFor,dummyFor} from './action-game.js?v=11';
 import {advanceMotion,beginJump} from './action-motion.js?v=6';
 import {villageHouses,homeObstacles,villageObstacles,ruinObstacles,ruinRubble,resourceObstacle,caveObstacles,foliageFor,outsideHome,circle} from './scene-layout.js?v=15';
 import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=11';
-import {createAlienVegetationBatch,alienPlantGeometry,alienPlacement,PLANT_FAMILIES} from './alien-vegetation.js?v=17';
+import {createAlienVegetationBatch,alienPlantGeometry,alienPlacement,PLANT_FAMILIES} from './alien-vegetation.js?v=18';
 import {salvageHut} from './salvage-huts.js?v=12';
 const materials={};const mat=(name,color)=>materials[name]||(materials[name]=new T.MeshStandardMaterial({color,roughness:1,flatShading:true}));
 const geos={box:new T.BoxGeometry(1,1,1),trunk:new T.CylinderGeometry(.25,.45,1,5),pine:new T.ConeGeometry(1,1,6),rock:new T.IcosahedronGeometry(1,0),sphere:new T.IcosahedronGeometry(1,1),grass:new T.ConeGeometry(1,1,3)};

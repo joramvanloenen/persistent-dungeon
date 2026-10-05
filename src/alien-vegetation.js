@@ -8,6 +8,7 @@ export const PLANT_FAMILIES=[
  {name:'Shard rosette',height:1.2},{name:'Tube coral',height:2.4},
  {name:'Spore cushions',height:1.3},{name:'Nutrient nest',height:2.2},{name:'Ribbon reeds',height:2.8}
 ];
+const roundedShells=[new T.IcosahedronGeometry(1,0),new T.OctahedronGeometry(1,0)];
 const cache=[[],[]],material=new T.MeshStandardMaterial({vertexColors:true,roughness:.95,side:T.DoubleSide,flatShading:true});
 export const BIOME_TINT={forest:0xb2d0b9,meadow:0xc5d8ab,marsh:0x9dd1c2,highlands:0xc1bec1,desert:0xd8b69e,tundra:0xc6d0d5};
 const palette={stem:0x6f918a,dark:0x405f68,pod:0xeaaa85,knot:0xbba676,sail:0x93bab0,edge:0xb0a1b3};
@@ -21,10 +22,10 @@ function grow(family,far){
  }
  // An octahedron is an eight-triangle seed pod, swelling, or spore sac.
  function pod(p,s,tone='pod'){const ring=[v(s[0],0,0),v(0,0,s[2]),v(-s[0],0,0),v(0,0,-s[2])].map(q=>q.add(p)),top=p.clone().add(v(0,s[1],0)),bottom=p.clone().add(v(0,-s[1],0));for(let i=0;i<4;i++){tri(top,ring[i],ring[(i+1)%4],tone);tri(bottom,ring[(i+1)%4],ring[i],tone);}}
- // Two broad latitude rings make a rounded, closed shell in 24 triangles (16 distant).
+ // A closed icosahedron gives a rounded silhouette in 20 triangles (eight distant).
  function roundPod(p,size,tone='pod'){
-  const sides=far?4:6,rings=[-.45,.45].map(y=>Array.from({length:sides},(_,i)=>v(Math.cos(i*2*Math.PI/sides)*size[0]*.89,y*size[1],Math.sin(i*2*Math.PI/sides)*size[2]*.89).add(p))),top=p.clone().add(v(0,size[1],0)),bottom=p.clone().sub(v(0,size[1],0));
-  for(let i=0;i<sides;i++){const j=(i+1)%sides;tri(top,rings[1][i],rings[1][j],tone);tri(bottom,rings[0][j],rings[0][i],'dark');tri(rings[0][i],rings[0][j],rings[1][i],tone);tri(rings[0][j],rings[1][j],rings[1][i],tone);}
+  const shell=roundedShells[+far].attributes.position;
+  for(let i=0;i<shell.count;i+=3){const points=[0,1,2].map(j=>new T.Vector3().fromBufferAttribute(shell,i+j).multiply(v(...size)).add(p)),shade=points.reduce((sum,q)=>sum+q.y-p.y,0)<-size[1]*.8?'dark':tone;tri(...points,shade);}
  }
  function blade(root,tip,width,tone='sail'){const side=v(tip.z-root.z,0,root.x-tip.x).normalize().multiplyScalar(width),mid=root.clone().lerp(tip,.6);tri(root,mid.clone().add(side),tip,tone);tri(root,tip,mid.clone().sub(side),tone);}
  if(family<3){
