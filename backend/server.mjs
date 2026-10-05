@@ -1,3 +1,4 @@
+import {peopleNear,baseNpc,locateNpc,advanceNpcLife,witnessAction,rememberObservation,meetNpc} from '../src/npc-life.js';
 import http from 'node:http';
 import {DatabaseSync} from 'node:sqlite';
 import {randomBytes,scryptSync,timingSafeEqual} from 'node:crypto';
@@ -20,9 +21,14 @@ CREATE TABLE IF NOT EXISTS memories(id INTEGER PRIMARY KEY,npc TEXT NOT NULL,pla
 CREATE INDEX IF NOT EXISTS memories_npc_time ON memories(npc,created_at DESC);
 CREATE TABLE IF NOT EXISTS events(id INTEGER PRIMARY KEY,actor TEXT NOT NULL,type TEXT NOT NULL,summary TEXT NOT NULL,data TEXT NOT NULL,created_at INTEGER NOT NULL);
 CREATE INDEX IF NOT EXISTS events_actor_time ON events(actor,created_at DESC);
+CREATE TABLE IF NOT EXISTS npc_life(id TEXT PRIMARY KEY,state TEXT NOT NULL);
 CREATE TABLE IF NOT EXISTS homes(owner TEXT PRIMARY KEY,village TEXT NOT NULL,plot INTEGER NOT NULL,state TEXT NOT NULL,UNIQUE(village,plot));`);
 if(!db.prepare('PRAGMA table_info(nodes)').all().some(c=>c.name==='space'))db.exec("ALTER TABLE nodes ADD COLUMN space TEXT NOT NULL DEFAULT 'overworld'");
 db.exec('CREATE INDEX IF NOT EXISTS nodes_space ON nodes(space)');
+const npcState=id=>{const row=db.prepare('SELECT state FROM npc_life WHERE id=?').get(id);return row?JSON.parse(row.state):{};};
+const putNpc=(id,state)=>db.prepare('INSERT INTO npc_life(id,state) VALUES(?,?) ON CONFLICT(id) DO UPDATE SET state=excluded.state').run(id,JSON.stringify(state));
+function nearbyLife(p,now=Date.now()){const life={};for(const n of peopleNear(p,now,{},1100)){life[n.id]=advanceNpcLife(n,npcState(n.id),now);putNpc(n.id,life[n.id]);}return life;}
+const publicLife=life=>Object.fromEntries(Object.entries(life).map(([id,state])=>[id,{...state,observations:state.observations.slice(-30)}]));
 const stateOf=id=>{const row=db.prepare('SELECT * FROM players WHERE id=?').get(id);return row?JSON.parse(row.state):null;};
 function readBody(req){return new Promise((res,rej)=>{let raw='';req.on('data',c=>{raw+=c;if(raw.length>12000){rej(Error('Request too large.'));req.destroy();}});req.on('end',()=>{try{res(JSON.parse(raw||'{}'));}catch{rej(Error('Invalid request.'));}});req.on('error',rej);});}
 function memoryRow(m){return {id:m.id,npc:m.npc,playerId:m.player_id,playerName:m.player_name,message:m.message,response:m.response,createdAt:m.created_at};}
@@ -64,11 +70,12 @@ const server=http.createServer(async(req,res)=>{
     const placeholders=spaces.map(()=>'?').join(','),nodes=db.prepare(`SELECT id FROM nodes WHERE (space='overworld' AND cx BETWEEN ? AND ? AND cz BETWEEN ? AND ?) OR space IN (${placeholders})`).all(cx-4,cx+4,cz-4,cz+4,...spaces);
     const homes=db.prepare(`SELECT state FROM homes WHERE village IN (${villages.map(()=>'?').join(',')}) LIMIT 200`).all(...villages).map(h=>JSON.parse(h.state));if(!homes.some(h=>h.owner===p.id))homes.push(p.house);
     const players=db.prepare('SELECT id,state FROM players WHERE updated_at>? LIMIT 50').all(Date.now()-120000).map(r=>{const s=JSON.parse(r.state),pos=s.dungeon||s;return {id:r.id,name:s.name,x:pos.x,z:pos.z,space:s.dungeon?.id||'overworld'};}).filter(s=>s.space===(p.dungeon?.id||'overworld')&&Math.hypot(s.x-(p.dungeon||p).x,s.z-(p.dungeon||p).z)<900);
-    const events=db.prepare('SELECT * FROM events WHERE actor=? ORDER BY created_at DESC LIMIT 20').all(actor).map(e=>({...e,createdAt:e.created_at}));return send({player:p,depleted:nodes.map(n=>n.id),homes,players,events});
+    const events=db.prepare('SELECT * FROM events WHERE actor=? ORDER BY created_at DESC LIMIT 20').all(actor).map(e=>({...e,createdAt:e.created_at}));return send({serverTime:Date.now(),npcLife:publicLife(nearbyLife(p)),player:p,depleted:nodes.map(n=>n.id),homes,players,events});
    }
    if(body.path==='memory'){
-    const n=resolveNpc(String(body.npc));if(p.dungeon||!n||Math.hypot(p.x-n.x,p.z-n.z)>20)return send({error:'Walk closer to this person.'},400);
-    const offset=Math.max(0,Math.min(1000000,Math.floor(Number(body.offset)||0))),rows=db.prepare('SELECT * FROM memories WHERE npc=?'+(body.personal?' AND player_id=?':'')+' ORDER BY id DESC LIMIT 201 OFFSET ?').all(n.id,...(body.personal?[actor]:[]),offset);return send({memories:rows.slice(0,200).reverse().map(memoryRow),hasMore:rows.length>200});
+    const now=Date.now(),life={[String(body.npc)]:npcState(String(body.npc))},n=locateNpc(String(body.npc),now,life);if(p.dungeon||!n||Math.hypot(p.x-n.x,p.z-n.z)>20)return send({error:'Walk closer to this person.'},400);
+    life[n.id]=meetNpc(n,advanceNpcLife(n,life[n.id],now),now);putNpc(n.id,life[n.id]);
+    const offset=Math.max(0,Math.min(1000000,Math.floor(Number(body.offset)||0))),rows=db.prepare('SELECT * FROM memories WHERE npc=?'+(body.personal?' AND player_id=?':'')+' ORDER BY id DESC LIMIT 201 OFFSET ?').all(n.id,...(body.personal?[actor]:[]),offset);return send({npc:locateNpc(n.id,now,life),serverTime:now,npcLife:publicLife(life),observations:life[n.id].observations.slice(-30).reverse(),memories:rows.slice(0,200).reverse().map(memoryRow),hasMore:rows.length>200});
    }
    if(body.path==='action'){
     if(!Number.isInteger(body.revision)||body.revision!==p.revision)return send({error:'Your traveler changed in another session. Reload and try again.'},409);
@@ -78,13 +85,15 @@ const server=http.createServer(async(req,res)=>{
      const depleted=a.type==='gather'&&!!db.prepare('SELECT id FROM nodes WHERE id=?').get(String(a.target));
      const memories=a.type==='talk'?db.prepare('SELECT * FROM memories WHERE npc=? ORDER BY created_at DESC').all(String(a.target)).map(memoryRow):[];
      const movement={};if(a.type==='move'&&!p.dungeon){const cx=Math.floor(p.x/CHUNK),cz=Math.floor(p.z/CHUNK),rx=Math.floor(p.x/REGION),rz=Math.floor(p.z/REGION),villages=[];for(let x=rx-1;x<=rx+1;x++)for(let z=rz-1;z<=rz+1;z++)villages.push(`v:${x}:${z}`);movement.homes=db.prepare(`SELECT state FROM homes WHERE village IN (${villages.map(()=>'?').join(',')}) LIMIT 200`).all(...villages).map(h=>JSON.parse(h.state));if(!movement.homes.some(h=>h.owner===p.id))movement.homes.push(p.house);movement.depletedIds=db.prepare("SELECT id FROM nodes WHERE space='overworld' AND cx BETWEEN ? AND ? AND cz BETWEEN ? AND ?").all(cx-3,cx+3,cz-3,cz+3).map(n=>n.id);}
-     const result=validateAction(p,a,{depleted,memories,...movement}),now=Date.now();
+     const now=Date.now(),npcLife=nearbyLife(p,now);if(a.type==='talk'&&!npcLife[a.target])npcLife[a.target]=npcState(a.target);const result=validateAction(p,a,{now,npcLife,depleted,memories,...movement});
+     for(const {npc,observation}of witnessAction(result.player,a,now,npcLife)){npcLife[npc]=rememberObservation(npcLife[npc]||npcState(npc),observation);putNpc(npc,npcLife[npc]);}
+     if(a.type==='talk'){npcLife[a.target]=meetNpc(baseNpc(a.target),npcLife[a.target],now);putNpc(a.target,npcLife[a.target]);}
      if(a.type==='gather'){const parts=a.target.split(':');db.prepare('INSERT INTO nodes(id,cx,cz,actor,depleted_at,space) VALUES(?,?,?,?,?,?)').run(a.target,+parts[1],+parts[2],actor,now,result.extra.space);}
      if(a.type==='talk')db.prepare('INSERT INTO memories(npc,player_id,player_name,message,response,created_at) VALUES(?,?,?,?,?,?)').run(a.target,actor,result.player.name,result.extra.message,result.extra.response,now);
      db.prepare('UPDATE homes SET state=? WHERE owner=?').run(JSON.stringify(result.player.house),actor);
      db.prepare('UPDATE players SET state=?,revision=?,updated_at=? WHERE id=?').run(JSON.stringify(result.player),result.player.revision,now,actor);
      db.prepare('INSERT INTO events(actor,type,summary,data,created_at) VALUES(?,?,?,?,?)').run(actor,a.type,result.summary,JSON.stringify(result.extra),now);
-     db.exec('COMMIT');return send(result);
+     db.exec('COMMIT');return send({...result,serverTime:now,npcLife:publicLife(npcLife)});
     }catch(e){db.exec('ROLLBACK');throw e;}
    }
    return send({error:'Unknown world request.'},400);

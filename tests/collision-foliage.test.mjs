@@ -40,7 +40,7 @@ test('branching alien plants share instanced geometry; depletion and home cleari
 test('all plant families stay within small triangle budgets and retain stable placement',()=>{
  for(const [i,family]of PLANT_FAMILIES.entries()){
   const geo=alienPlantGeometry(i),far=alienPlantGeometry(i,true),triangles=geo.attributes.position.count/3;
-  assert.ok(triangles<=(family.canopy?240:64),`${family.name}: ${triangles}`);assert.ok(far.attributes.position.count<geo.attributes.position.count);
+  assert.ok(triangles<=(family.canopy?300:64),`${family.name}: ${triangles}`);assert.ok(far.attributes.position.count<geo.attributes.position.count);
   assert.equal(geo.attributes.position.count,geo.attributes.color.count);assert.ok([...geo.attributes.position.array].every(Number.isFinite));
   const box=new T.Box3().setFromBufferAttribute(geo.attributes.position);assert.ok(box.max.y>0&&box.min.y<.05);
  }

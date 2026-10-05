@@ -1,3 +1,4 @@
+import {locateNpc} from './npc-life.js?v=17';
 import {RESOURCE_NAMES,loreReply,containsPowerball} from './fringe-lore.js?v=11';
 import {applyTransit,planetAt,planetContains} from './planets.js?v=11';
 import {initialPlayer,nearestSettlement,waterDistance,resolveResource,resolveNpc,LIMIT,roadDistance,roadSegments,REGION,smithFor,settlement} from './world.js?v=11';
@@ -44,18 +45,20 @@ export function validateAction(input,a,context={}) {
  case 'rest':surface();if(nearestSettlement(p.x,p.z).distance>85&&Math.hypot(p.x-p.house.x,p.z-p.house.z)>14)throw Error('Rest at your landing pod or in a colony.');next.health=100;next.food=Math.min(100,next.food+8);summary='Recovered at the colony';break;
  case 'rename':next.name=cleanName(a.name);next.house.ownerName=next.name;next.introduced=true;summary=`Now known as ${next.name}`;break;
  case 'talk':{
-  surface();const npc=resolveNpc(String(a.target));if(!npc)throw Error('This person does not exist.');if(Math.hypot(p.x-npc.x,p.z-npc.z)>15)throw Error('Walk closer to speak.');
-  const message=String(a.message||'').trim();if(!message||message.length>800)throw Error('Write a message of 1–800 characters.');const response=npcReply(npc,p,message,context.memories||[]);extra={npc:npc.id,message,response};summary=`Spoke with ${npc.name}`;break;
+  surface();const npc=locateNpc(String(a.target),now,context.npcLife);if(!npc)throw Error('This person does not exist.');if(Math.hypot(p.x-npc.x,p.z-npc.z)>15)throw Error('Walk closer to speak.');
+  const message=String(a.message||'').trim();if(!message||message.length>800)throw Error('Write a message of 1–800 characters.');const response=npcReply(npc,p,message,context.memories||[],context.npcLife?.[npc.id]?.observations||[]);extra={npc:npc.id,message,response};summary=`Spoke with ${npc.name}`;break;
  }
  default:{const result=applyTransit(p,next,a,now)||applyActionGame(p,next,a,now);if(!result)throw Error('Unknown action.');({summary,extra}=result);}
  }
  next.revision=(p.revision||0)+1;next.updatedAt=now;return {player:next,extra,summary};
 }
 export function npcGreeting(npc,p,known=false){return known?`Back on the surface, ${p.name}? ${npc.village} is still holding together. What did you find?`:{gatherer:`Fresh landing? I'm ${npc.name}. Out here, biomass and silicate are worth more than promises. Keep your scanner close.`,keeper:`Welcome to ${npc.village}. I'm ${npc.name}, colony steward. Your landing pod is yours. Beyond our beacon, you're on your own.`,wayfarer:`I'm ${npc.name}. Freight runner. Dugall gets you here; the Drifters teach you how to stay alive. Looking for another planet?`,smith:`${npc.name}. Fabricator. Bring alloy fragments, biomass, and credits. I'll rent you the induction bay. Orange heat, then a clean strike pattern.`}[npc.role];}
-export function npcReply(npc,p,message,memories) {
+export function npcReply(npc,p,message,memories,observations=[]) {
  const mine=memories.filter(m=>m.playerId===p.id),lower=message.toLowerCase(),words=lower.match(/[\p{L}\p{N}]{4,}/gu)||[];
  const stop=new Set(['remember','recall','about','what','told','know','that','your','have','would','please']);
  const scored=memories.map((m,i)=>({m,score:words.filter(w=>!stop.has(w)).reduce((s,w)=>s+(m.message.toLowerCase().includes(w)?1:0),0),i})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||a.i-b.i),match=scored[0]?.m;
+ if(/schedule|routine|your day|what are you doing|where are you going/.test(lower))return `Right now I'm ${npc.activity||'working in the colony'}. My usual circuit: ${(npc.schedule||[]).join('; ')||'the colony tracks'}.`;
+ if(/observ|notice|seen|saw|happening|news|around here/.test(lower)){const matching=observations.filter(o=>words.some(w=>!['what','have','noticed','around','here','seen','observations'].includes(w)&&o.summary.toLowerCase().includes(w)));const recent=(matching.length?matching:observations).slice().sort((a,b)=>(b.kind==='witness')-(a.kind==='witness')||b.createdAt-a.createdAt).slice(0,3);return recent.length?recent.map(o=>o.summary).join(' '):`I'm ${npc.activity||'watching the colony tracks'}. No fresh sightings to report yet.`;}
  const history=loreReply(message);
  if(/remember|recall|told|memory|onthoud|weet|verteld|what did (?:i|we|you) (?:say|tell)/.test(lower)||/know about|what did/.test(lower)&&!history){const m=match||mine[0]||memories[0];return m?`${m.playerId===p.id?'You':m.playerName||'A traveler'} spoke of this: “${m.message}” A detail like that stays with a person.`:`We haven't traded stories yet, ${p.name}. What should I remember?`;}
  if(history)return history;

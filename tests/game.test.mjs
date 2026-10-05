@@ -1,3 +1,4 @@
+import {locateNpc} from '../src/npc-life.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {settlement,npcsFor,resourcesFor,resolveResource,heightAt,waterDistance,CHUNK,initialPlayer} from '../src/world.js';
@@ -22,7 +23,7 @@ test('movement rejects invalid coordinates, teleporting, and drains supplies onl
  assert.equal(validateAction(p,{type:'move',x:p.x,z:p.z},{now:Date.now()+86400000}).player.food,p.food);
 });
 test('NPC memory quotes exact old information and attributes other travelers',()=>{
- const s=settlement(0,0),npc=npcsFor(s)[0],p=createPlayer('myself','Yoram');
+ const s=settlement(0,0),npc=locateNpc(npcsFor(s)[0].id),p=createPlayer('myself','Yoram');
  const m={npc:npc.id,playerId:p.id,playerName:'Yoram',message:'The glass key is beneath the old oak.',response:'',createdAt:1};
  const recent=Array.from({length:250},(_,i)=>({...m,message:`Other story number ${i}`,createdAt:i+2}));
  assert.match(npcReply(npc,p,'Do you remember the glass key?',[...recent,m]),/glass key is beneath the old oak/);
@@ -32,7 +33,7 @@ test('NPC memory quotes exact old information and attributes other travelers',()
 });
 test('local preview reload keeps resources, full conversation, and traveler with failed-save rollback',async()=>{
  const storage=new Map();globalThis.localStorage={getItem:k=>storage.get(k)||null,setItem:(k,v)=>storage.set(k,v)};
- const a=new Store();await a.init();const npc=npcsFor(settlement(0,0))[0];a.local.player.x=npc.x;a.local.player.z=npc.z;
+ const a=new Store();await a.init();const npc=locateNpc(npcsFor(settlement(0,0))[0].id);a.local.player.x=npc.x;a.local.player.z=npc.z;
  const r=await a.action({type:'talk',target:npc.id,message:'My boat is named Moonfish.'},a.local.player);
  const b=new Store();await b.init();assert.equal(b.local.memories[0].message,'My boat is named Moonfish.');assert.equal(b.local.player.id,a.local.player.id);
  const before=structuredClone(b.local);globalThis.localStorage.setItem=()=>{throw Error('quota');};await assert.rejects(b.action({type:'rename',name:'Lost rename'},b.local.player),/could not save/);assert.deepEqual(b.local,before);

@@ -1,3 +1,4 @@
+import {locateNpc} from '../src/npc-life.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {createPlayer,validateAction,npcReply} from '../src/rules.js';
@@ -40,11 +41,11 @@ test('Powerballs can be recovered, refined and traded only with validated resour
  const sold=validateAction(q,{type:'smith-sell',target:smith.id,kind:'powerballs'}).player;assert.equal(sold.inventory.powerballs,1);assert.equal(sold.coins,q.coins+12);assert.throws(()=>validateAction({...q,x:smith.x+100},{type:'refine-powerball',target:smith.id}),/closer/);assert.throws(()=>validateAction({...q,inventory:{...q.inventory,stone:0}},{type:'refine-powerball',target:smith.id}),/Refining/);
 });
 test('Drifters explain canon while recalling exact personal and other player information',()=>{
- const p=starter(),npc=npcsFor(settlement(0,0))[0],memory=[{playerId:p.id,message:'My ship is called Little Lantern.'},{playerId:'other',playerName:'Jo',message:'I hid a silver antenna under the recycler.'}];
+ const p=starter(),npc=locateNpc(npcsFor(settlement(0,0))[0].id),memory=[{playerId:p.id,message:'My ship is called Little Lantern.'},{playerId:'other',playerName:'Jo',message:'I hid a silver antenna under the recycler.'}];
  assert.match(npcReply(npc,p,'What do you know about the Freight Wars?',memory),/Dugall/);assert.match(npcReply(npc,p,'Who was Klem Earlie?',memory),/disbanded/);assert.match(npcReply(npc,p,'Tell me about the Feigngull Massacre',memory),/Maven/);assert.match(npcReply(npc,p,'Do you remember my ship?',memory),/My ship is called Little Lantern/);assert.match(npcReply(npc,p,'What do you know about my ship?',memory),/My ship is called Little Lantern/);assert.match(npcReply(npc,p,'What did Klem Earlie do?',memory),/disbanded/);assert.match(npcReply(npc,p,'Remember the silver antenna?',memory),/Jo spoke/);
 });
 test('planet travel, voucher use, NPC memory and discoveries survive local reload and return to the original pod',async()=>{
  const memory=new Map();globalThis.localStorage={getItem:k=>memory.get(k)||null,setItem:(k,v)=>memory.set(k,v)};
- let store=new Store();await store.init();const npc=npcsFor(settlement(0,0))[0];store.local.player={...starter(),x:npc.x,z:npc.z};store.saveLocal();await store.action({type:'talk',target:npc.id,message:'My ship is called Little Lantern.'},store.local.player);await store.action({type:'travel-planet',target:'planet:1:-1'},store.local.player);
+ let store=new Store();await store.init();const npc=locateNpc(npcsFor(settlement(0,0))[0].id);store.local.player={...starter(),x:npc.x,z:npc.z};store.saveLocal();await store.action({type:'talk',target:npc.id,message:'My ship is called Little Lantern.'},store.local.player);await store.action({type:'travel-planet',target:'planet:1:-1'},store.local.player);
  store=new Store();await store.init();assert.equal(store.local.player.planet,'planet:1:-1');assert.equal(store.local.player.arrivalVoucher,0);assert.equal(store.local.memories[0].message,'My ship is called Little Lantern.');const visited=structuredClone(store.local.player.visitedPlanets);const result=await store.action({type:'return-home'},store.local.player);assert.equal(result.player.x,result.player.house.doorX);assert.deepEqual(result.player.visitedPlanets,visited);assert.equal(result.player.arrivalVoucher,0);
 });

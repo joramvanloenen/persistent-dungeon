@@ -1,5 +1,6 @@
+import {peopleNear,baseNpc,locateNpc,advanceNpcLife,witnessAction,rememberObservation,meetNpc,mergeLifeMaps} from './npc-life.js?v=17';
 import CONFIG from '../config.js';
-import {createPlayer,validateAction} from './rules.js?v=11';
+import {createPlayer,validateAction} from './rules.js?v=17';
 import {normalizePlayer} from './homes.js?v=11';
 const LOCAL_KEY='evermere-local-v1';
 export class Store {
@@ -9,7 +10,7 @@ export class Store {
    let raw;try{raw=localStorage.getItem(LOCAL_KEY);}catch{this.localError='Browser storage is blocked. Progress cannot be saved on this device.';}
    if(raw){try{this.local=JSON.parse(raw);if(!this.local.player||!this.local.nodes||!this.local.memories)throw Error();}catch{throw Error('The local save could not be read. Export or repair it before continuing.');}}
    if(!this.local)this.local={player:createPlayer(crypto.randomUUID(),'Traveler'),nodes:{},memories:[],events:[]};
-   this.local.player=normalizePlayer(this.local.player);this.saveLocal();return;
+   this.local.player=normalizePlayer(this.local.player);this.local.npcLife??={};this.saveLocal();return;
   }
   if(this.mode==='server'){this.session=localStorage.getItem('evermere-server-token');return;}
   if(this.mode==='cloud'){
@@ -42,20 +43,28 @@ export class Store {
  }
  action(action,player){const task=()=>this.request('action',{action,revision:player.revision});const pending=this.queue.then(task,task);this.queue=pending.catch(()=>{});return pending;}
  async localRequest(path,body={}){
-  const raw=localStorage.getItem(LOCAL_KEY);if(raw){const latest=JSON.parse(raw);if(latest.player.revision>this.local.player.revision){this.local=latest;this.local.player=normalizePlayer(this.local.player);}}
+  const raw=localStorage.getItem(LOCAL_KEY);if(raw){const latest=JSON.parse(raw);this.local.npcLife=mergeLifeMaps(this.local.npcLife,latest.npcLife);if(latest.player.revision>this.local.player.revision){const merged=this.local.npcLife;this.local=latest;this.local.npcLife=merged;this.local.player=normalizePlayer(this.local.player);}}
   const l=this.local;
-  if(path==='state')return {player:structuredClone(l.player),depleted:Object.keys(l.nodes),homes:[l.player.house],players:[],events:l.events.slice(-12).reverse()};
-  if(path==='memory'){const memories=l.memories.filter(m=>m.npc===body.npc&&(!body.personal||m.playerId===l.player.id)).slice().reverse();const offset=Math.max(0,Math.min(1000000,Number(body.offset)||0));return {memories:memories.slice(offset,offset+200).reverse(),hasMore:memories.length>offset+200};}
+  if(path==='state'){l.npcLife??={};const now=Date.now();for(const n of peopleNear(l.player,now,l.npcLife))l.npcLife[n.id]=advanceNpcLife(n,l.npcLife[n.id],now);this.saveLocal();return {serverTime:now,npcLife:structuredClone(l.npcLife),player:structuredClone(l.player),depleted:Object.keys(l.nodes),homes:[l.player.house],players:[],events:l.events.slice(-12).reverse()};}
+  if(path==='memory'){
+   const now=Date.now();l.npcLife??={};const n=locateNpc(body.npc,now,l.npcLife);if(l.player.dungeon||!n||Math.hypot(n.x-l.player.x,n.z-l.player.z)>20)throw Error('Walk closer to this person.');
+   const life=advanceNpcLife(n,l.npcLife[n.id],now);l.npcLife[n.id]=meetNpc(n,life,now);this.saveLocal();
+   const memories=l.memories.filter(m=>m.npc===body.npc&&(!body.personal||m.playerId===l.player.id)).slice().reverse(),offset=Math.max(0,Math.min(1000000,Number(body.offset)||0));
+   return {npc:locateNpc(n.id,now,l.npcLife),npcLife:{[n.id]:structuredClone(l.npcLife[n.id])},serverTime:now,observations:life.observations.slice(-30).reverse(),memories:memories.slice(offset,offset+200).reverse(),hasMore:memories.length>offset+200};
+  }
   if(path==='action'){
    // Local preview follows the same server rules, including atomic resource claims.
    if(!Number.isInteger(body.revision)||body.revision!==l.player.revision)throw Error('Your traveler changed in another session. Reload and try again.');
-   const a=body.action,result=validateAction(l.player,a,{depleted:!!l.nodes[a.target],depletedIds:Object.keys(l.nodes),homes:[l.player.house],memories:l.memories.filter(m=>m.npc===a.target).slice().reverse()});
+   l.npcLife??={};const a=body.action,now=Date.now(),result=validateAction(l.player,a,{now,npcLife:l.npcLife,depleted:!!l.nodes[a.target],depletedIds:Object.keys(l.nodes),homes:[l.player.house],memories:l.memories.filter(m=>m.npc===a.target).slice().reverse()});
    const previous=structuredClone(l);l.player=result.player;
+   for(const n of peopleNear(l.player,now,l.npcLife))l.npcLife[n.id]=advanceNpcLife(n,l.npcLife[n.id],now);
+   for(const {npc,observation} of witnessAction(l.player,a,now,l.npcLife))l.npcLife[npc]=rememberObservation(l.npcLife[npc],observation);
+   if(a.type==='talk'){const n=baseNpc(a.target);l.npcLife[n.id]=meetNpc(n,l.npcLife[n.id],now);}
    if(a.type==='gather')l.nodes[a.target]=Date.now();
    if(a.type==='talk')l.memories.push({id:crypto.randomUUID(),npc:a.target,playerId:l.player.id,playerName:l.player.name,message:result.extra.message,response:result.extra.response,createdAt:Date.now()});
    l.events.push({id:crypto.randomUUID(),type:a.type,summary:result.summary,createdAt:Date.now(),data:result.extra});
    try{this.saveLocal();}catch(e){this.local=previous;throw e;}
-   return {...result,depleted:Object.keys(l.nodes)};
+   return {...result,serverTime:now,npcLife:structuredClone(l.npcLife),depleted:Object.keys(l.nodes)};
   }throw Error('Unknown world request.');
  }
  saveLocal(){if(this.localError)throw Error(this.localError);try{localStorage.setItem(LOCAL_KEY,JSON.stringify(this.local));}catch{throw Error('Your browser could not save progress. Free storage and try again.');}}

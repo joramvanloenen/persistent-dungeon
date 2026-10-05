@@ -109,3 +109,42 @@ end;
 $$;
 revoke all on function public.apply_game_action(uuid,bigint,jsonb,text,text,jsonb) from public,anon,authenticated;
 grant execute on function public.apply_game_action(uuid,bigint,jsonb,text,text,jsonb) to service_role;
+
+-- NPC schedules use absolute world time. Keep observations and conversation pauses shared.
+create table if not exists public.game_npc_life (id text primary key,state jsonb not null);
+alter table public.game_npc_life enable row level security;
+revoke all on public.game_npc_life from anon,authenticated;
+grant all on public.game_npc_life to service_role;
+create or replace function public.remember_npc_life(patches jsonb)
+returns jsonb language plpgsql security definer set search_path=public,pg_temp as $$
+declare patch jsonb; previous jsonb; merged jsonb; result jsonb := '[]'::jsonb;
+begin
+ for patch in select value from jsonb_array_elements(patches) order by value->>'id' loop
+  insert into game_npc_life(id,state) values(patch->>'id','{"observations":[]}'::jsonb) on conflict(id) do nothing;
+  select state into previous from game_npc_life where id=patch->>'id' for update;
+  select coalesce(jsonb_agg(value order by (value->>'createdAt')::numeric),'[]'::jsonb) into merged from (
+   select distinct on (value->>'id') value from jsonb_array_elements(coalesce(previous->'observations','[]'::jsonb)||coalesce(patch->'state'->'observations','[]'::jsonb))
+  ) observations;
+  if coalesce((previous->'meeting'->>'startedAt')::numeric,0)>coalesce((patch->'state'->'meeting'->>'startedAt')::numeric,0) then
+   patch := jsonb_set(patch,'{state}',(patch->'state')-'meeting'-'pausedMs');
+  end if;
+  previous := previous || (patch->'state') || jsonb_build_object('observations',merged,'updatedAt',greatest(coalesce((previous->>'updatedAt')::numeric,0),coalesce((patch->'state'->>'updatedAt')::numeric,0)));
+  update game_npc_life set state=previous where id=patch->>'id';
+  result := result || jsonb_build_array(jsonb_build_object('id',patch->>'id','state',previous));
+ end loop;
+ return result;
+end;
+$$;
+revoke all on function public.remember_npc_life(jsonb) from public,anon,authenticated;
+grant execute on function public.remember_npc_life(jsonb) to service_role;
+-- Run after successful player writes, in the same transaction. Failed actions leave no sightings.
+create or replace function public.record_action_sightings() returns trigger language plpgsql security definer set search_path=public,pg_temp as $$
+begin
+ if new.data ? 'npcLife' then perform remember_npc_life(new.data->'npcLife');end if;
+ return new;
+end;
+$$;
+drop trigger if exists npc_action_sightings on public.game_events;
+create trigger npc_action_sightings after insert on public.game_events for each row execute function public.record_action_sightings();
+
+revoke all on function public.record_action_sightings() from public,anon,authenticated;

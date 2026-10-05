@@ -1,3 +1,4 @@
+import {npcAt,peopleNear} from './npc-life.js?v=17';
 import {resolvePlanet,planetContains} from './planets.js?v=11';
 import {ROLE_TITLES,containsPowerball} from './fringe-lore.js?v=11';
 import * as T from '../vendor/three.module.js';
@@ -9,7 +10,7 @@ import {equippedWeapon,guardiansFor,dummyFor} from './action-game.js?v=11';
 import {advanceMotion,beginJump} from './action-motion.js?v=6';
 import {villageHouses,homeObstacles,villageObstacles,ruinObstacles,ruinRubble,resourceObstacle,caveObstacles,foliageFor,outsideHome,circle} from './scene-layout.js?v=15';
 import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=11';
-import {createAlienVegetationBatch,alienPlantGeometry,alienPlacement,PLANT_FAMILIES} from './alien-vegetation.js?v=16';
+import {createAlienVegetationBatch,alienPlantGeometry,alienPlacement,PLANT_FAMILIES} from './alien-vegetation.js?v=17';
 import {salvageHut} from './salvage-huts.js?v=12';
 const materials={};const mat=(name,color)=>materials[name]||(materials[name]=new T.MeshStandardMaterial({color,roughness:1,flatShading:true}));
 const geos={box:new T.BoxGeometry(1,1,1),trunk:new T.CylinderGeometry(.25,.45,1,5),pine:new T.ConeGeometry(1,1,6),rock:new T.IcosahedronGeometry(1,0),sphere:new T.IcosahedronGeometry(1,1),grass:new T.ConeGeometry(1,1,3)};
@@ -24,7 +25,7 @@ export function avatar(color=0xd2aa76){
 }
 export class WorldRenderer {
  constructor(container,{onWalk,onFrame}){
-  this.container=container;this.onWalk=onWalk;this.onFrame=onFrame;this.chunks=new Map();this.nodes=new Map();this.npcs=new Map();this.villages=new Map();this.depleted=new Set();this.others=new Map();this.frame=0;this.keys={};this.player=null;this.target=null;this.yaw=.15;this.zoom=1;this.touchPoints=new Map();this.terrain=[];this.quality='balanced';this.ruins=new Map();this.homes=new Map();this.cave=null;this.caveModel=null;this.path=[];this.exploration={};
+  this.container=container;this.onWalk=onWalk;this.onFrame=onFrame;this.chunks=new Map();this.nodes=new Map();this.npcs=new Map();this.villages=new Map();this.depleted=new Set();this.others=new Map();this.frame=0;this.keys={};this.player=null;this.target=null;this.yaw=.15;this.zoom=1;this.touchPoints=new Map();this.terrain=[];this.quality='balanced';this.ruins=new Map();this.homes=new Map();this.cave=null;this.caveModel=null;this.path=[];this.exploration={};this.npcLife={};this.serverOffset=0;
   this.pitch=CAMERA_LIMITS.defaultPitch;this.cameraOrbit={yaw:this.yaw,pitch:this.pitch};this.cameraFocus=new T.Vector3();this.projectedLabel=new T.Vector3();
   this.collision=new CollisionIndex();
   this.motion={stamina:100,height:0,velocity:0,swing:0};this.runToggled=false;this.opponents=new Map();
@@ -132,14 +133,14 @@ export class WorldRenderer {
 
   const y=this.ground(p.x,p.z);this.hero.position.set(p.x,y+state.height+Math.sin(this.clock.elapsedTime*(state.running?17:12))*Math.min(moved*1.5,.15),p.z);this.ring.position.set(p.x,y+.2,p.z);if(this.heldWeapon){const swing=this.motion.swing/ .65;this.heldWeapon.rotation.x=.2+Math.sin(swing*Math.PI)*1.8;this.heldWeapon.rotation.z=-.25+Math.sin(swing*Math.PI)*.7;}
   if(p.dungeon){p.dungeon.x=p.x;p.dungeon.z=p.z;}for(const [i,leg]of this.hero.userData.legs.entries())leg.rotation.x=Math.sin(this.clock.elapsedTime*11+i*Math.PI)*Math.min(moved*4,.5);
-  this.updateCamera(dt);this.lantern.position.set(p.x,3.2,p.z);
+  this.updateNpcs(dt);this.updateCamera(dt);this.lantern.position.set(p.x,3.2,p.z);
   this.sun.position.set(p.x-85,y+175,p.z-90);this.sun.target.position.set(p.x,y,p.z);
   this.destination.visible=!!this.target;if(this.target)this.destination.position.set(this.target.x,this.ground(this.target.x,this.target.z)+.3,this.target.z);
   if(this.frame++%20===0&&!this.cave)this.stream();if(this.caveModel)for(const f of this.caveModel.torches)f.scale.y=.65+Math.sin(this.clock.elapsedTime*5+f.position.x)*.08;this.labels();for(const foe of this.opponents.values()){const visible=foe.object.visible&&Math.hypot(p.x-foe.x,p.z-foe.z)<45;foe.label.style.display=visible?'block':'none';if(visible){const v=this.projectedLabel.set(foe.x,(this.cave?0:foe.y)+4,foe.z).project(this.camera);foe.label.style.left=`${(v.x*.5+.5)*this.container.clientWidth}px`;foe.label.style.top=`${(-v.y*.5+.5)*this.container.clientHeight}px`;}}
   this.onFrame({x:p.x,z:p.z,moved,path:movementTrail,dt,running:state.running,stamina:state.stamina});this.renderer.render(this.scene,this.camera);
  }
- updateVegetationLod(){for(const chunk of this.chunks.values()){const distance=Math.hypot((chunk.cx+.5)*CHUNK-this.player.x,(chunk.cz+.5)*CHUNK-this.player.z),lowDetail=distance>CHUNK*1.65;for(const plant of chunk.alienBatches||[])if(plant.userData.lowDetail!==lowDetail){plant.geometry=alienPlantGeometry(plant.userData.variant,lowDetail);plant.computeBoundingSphere();plant.userData.lowDetail=lowDetail;}}}
- stream(){if(this.cave)return;this.updateVegetationLod();const cx=Math.floor(this.player.x/CHUNK),cz=Math.floor(this.player.z/CHUNK),r=Math.min(4,Math.max(2,Math.ceil(this.zoom*1.6)));
+ updateVegetationLod(){for(const chunk of this.chunks.values()){const distance=Math.hypot((chunk.cx+.5)*CHUNK-this.player.x,(chunk.cz+.5)*CHUNK-this.player.z),lowDetail=distance>CHUNK*1.65;for(const plant of chunk.alienBatches||[])if(plant.userData.lowDetail!==lowDetail){plant.geometry=alienPlantGeometry(plant.userData.variant,lowDetail);plant.computeBoundingSphere();plant.userData.lowDetail=lowDetail;plant.castShadow=!!PLANT_FAMILIES[plant.userData.variant].canopy&&!lowDetail;}}}
+ stream(){if(this.cave)return;this.syncRoadPeople();this.updateVegetationLod();const cx=Math.floor(this.player.x/CHUNK),cz=Math.floor(this.player.z/CHUNK),r=Math.min(4,Math.max(2,Math.ceil(this.zoom*1.6)));
   if(this.cx===cx&&this.cz===cz&&this.radius===r)return;this.cx=cx;this.cz=cz;this.radius=r;
   const want=new Set();const pending=[];
   for(let a=cx-r;a<=cx+r;a++)for(let b=cz-r;b<=cz+r;b++){const key=`${a}:${b}`;want.add(key);if(!this.chunks.has(key))pending.push([a,b]);}
@@ -178,6 +179,20 @@ export class WorldRenderer {
   }
   for(const n of nodes.filter(n=>n.kind==='stone')){const object=new T.Group();object.position.set(n.x,n.y,n.z);object.add(mesh(geos.rock,mat('silicate',0x87939e),0,.9,0,1.4*n.scale,1.2*n.scale,1.1*n.scale));if(containsPowerball(n))object.add(mesh(geos.sphere,glow('powerball',0xe8bf62),0,1.65,0,.48,.48,.48));group.add(object);this.nodes.set(n.id,{...n,object,occupied:false});ids.push(n.id);}
   this.scene.add(group);this.chunks.set(`${cx}:${cz}`,{group,terrain,ids,disposable,cx,cz,decorTrees:layout.trees,decorBatches,alienBatches});this.refreshChunkCollision(this.chunks.get(`${cx}:${cz}`));
+ }
+ setNpcLife(life={},serverTime){this.npcLife={...(this.npcLife||{}),...life};if(serverTime)this.serverOffset=serverTime-Date.now();}
+ syncRoadPeople(){
+  const now=Date.now()+(this.serverOffset||0),wanted=peopleNear(this.player,now,this.npcLife,CHUNK*3.2).filter(n=>n.road&&(!this.currentPlanet||planetContains(this.currentPlanet.id,n.x,n.z))),ids=new Set(wanted.map(n=>n.id));
+  for(const [id,n]of this.npcs)if(n.road&&!ids.has(id)){this.scene.remove(n.object);n.label.remove();this.npcs.delete(id);}
+  for(const n of wanted)if(!this.npcs.has(n.id)){const person=avatar(0x7f92a2),label=document.createElement('div');label.className='world-label';label.textContent=`${n.name} · Freight runner`;this.labelContainer.append(label);person.position.set(n.x,n.y,n.z);this.scene.add(person);this.npcs.set(n.id,{...n,object:person,label});}
+ }
+ updateNpcs(dt){
+  if(this.cave)return;const now=Date.now()+(this.serverOffset||0);
+  for(const n of this.npcs.values()){
+   const next=npcAt(n,now,this.npcLife?.[n.id]);Object.assign(n,next);n.object.position.set(n.x,n.y,n.z);
+   if(n.moving)n.object.rotation.y=n.heading;
+   for(const [i,leg]of (n.object.userData.legs||[]).entries())leg.rotation.x=n.moving?Math.sin(now*.007+i*Math.PI)*.4:0;
+  }
  }
  addVillage(s){const group=new T.Group();
   for(const [i,h]of villageHouses(s).entries()){const house=salvageHut(h.width,h.depth,i);house.position.set(h.x,s.y,h.z);house.rotation.y=h.rotation;group.add(house);}

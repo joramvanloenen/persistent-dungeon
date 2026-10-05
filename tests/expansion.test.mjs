@@ -1,3 +1,4 @@
+import {locateNpc} from '../src/npc-life.js';
 import test from 'node:test';import assert from 'node:assert/strict';
 import {createPlayer,validateAction,npcGreeting} from '../src/rules.js';
 import {normalizePlayer,homeFor} from '../src/homes.js';
@@ -31,6 +32,6 @@ test('save migration keeps NPC history and cave state; journal is paginated sepa
  const data=new Map();globalThis.localStorage={getItem:k=>data.get(k)||null,setItem:(k,v)=>data.set(k,v)};const player=createPlayer('history-player','Ada');delete player.house;delete player.caves;const npc=npcsFor(settlement(0,0))[0];
  const memories=Array.from({length:230},(_,i)=>({id:String(i),npc:npc.id,playerId:player.id,playerName:'Ada',message:'Historic fact '+i,response:'Remembered '+i,createdAt:i}));
  data.set('evermere-local-v1',JSON.stringify({player,nodes:{},memories,events:[]}));const store=new Store();await store.init();assert.equal(store.local.memories.length,230);assert.equal(store.local.player.house.owner,player.id);
- const first=await store.request('memory',{npc:npc.id,personal:true});assert.equal(first.memories.length,200);assert.equal(first.hasMore,true);const old=await store.request('memory',{npc:npc.id,personal:true,offset:200});assert.equal(old.memories.length,30);assert.equal(old.hasMore,false);
+ const position=locateNpc(npc.id);store.local.player.x=position.x;store.local.player.z=position.z;store.saveLocal();const first=await store.request('memory',{npc:npc.id,personal:true});assert.equal(first.memories.length,200);assert.equal(first.hasMore,true);const old=await store.request('memory',{npc:npc.id,personal:true,offset:200});assert.equal(old.memories.length,30);assert.equal(old.hasMore,false);
  assert.doesNotMatch(npcGreeting(npc,player,true),/Historic fact/);
 });
