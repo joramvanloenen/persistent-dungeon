@@ -1,3 +1,4 @@
+import {environmentFor,environmentOutsideHome,environmentObstacle} from './environment.js?v=19';
 import {CHUNK,REGION,settlement,resourcesFor,waterDistance,roadDistance,roadSegments} from './world.js?v=11';
 import {ruinFor} from './dungeons.js?v=11';
 import {homeObstacles,villageObstacles,ruinObstacles,resourceObstacle,foliageFor,outsideHome,circle} from './scene-layout.js?v=11';
@@ -29,7 +30,7 @@ export function buildSurfaceCollisions(points,{homes=[],depletedIds=[]}={}){
  const index=new CollisionIndex(),depleted=new Set(depletedIds),xs=points.map(p=>p.x),zs=points.map(p=>p.z),minX=Math.min(...xs)-18,maxX=Math.max(...xs)+18,minZ=Math.min(...zs)-18,maxZ=Math.max(...zs)+18;
  for(const h of homes)index.replace(h.id,homeObstacles(h));
  for(let rx=Math.floor(minX/REGION)-1;rx<=Math.floor(maxX/REGION)+1;rx++)for(let rz=Math.floor(minZ/REGION)-1;rz<=Math.floor(maxZ/REGION)+1;rz++){const s=settlement(rx,rz),r=ruinFor(rx,rz);index.replace(s.id,villageObstacles(s));index.replace(r.id,ruinObstacles(r));}
- for(let cx=Math.floor(minX/CHUNK);cx<=Math.floor(maxX/CHUNK);cx++)for(let cz=Math.floor(minZ/CHUNK);cz<=Math.floor(maxZ/CHUNK);cz++){const shapes=resourcesFor(cx,cz).filter(n=>outsideHome(n,homes)&&!depleted.has(n.id)).map(resourceObstacle).filter(Boolean);for(const n of foliageFor(cx,cz).trees)if(outsideHome(n,homes))shapes.push(circle(n.id,n.x,n.z,.45));index.replace(`chunk:${cx}:${cz}`,shapes);}return index;
+ for(let cx=Math.floor(minX/CHUNK);cx<=Math.floor(maxX/CHUNK);cx++)for(let cz=Math.floor(minZ/CHUNK);cz<=Math.floor(maxZ/CHUNK);cz++){const shapes=resourcesFor(cx,cz).filter(n=>outsideHome(n,homes)&&!depleted.has(n.id)).map(resourceObstacle).filter(Boolean);for(const n of foliageFor(cx,cz).trees)if(outsideHome(n,homes))shapes.push(circle(n.id,n.x,n.z,.45));for(const n of environmentFor(cx,cz).props)if(environmentOutsideHome(n,homes))shapes.push(environmentObstacle(n));index.replace(`chunk:${cx}:${cz}`,shapes);}return index;
 }
 // Local A* gives tap-to-walk a route around solid props, rather than pushing into them.
 export function findSurfacePath(start,end,clear,{step=2.5,margin=32,limit=14000}={}){

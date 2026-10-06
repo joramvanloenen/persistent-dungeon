@@ -1,4 +1,6 @@
-import {npcAt,peopleNear} from './npc-life.js?v=17';
+import {groundTint,environmentFor,environmentOutsideHome,environmentObstacle} from './environment.js?v=19';
+import {buildRoadSurface,buildGroundPatches,createEnvironmentBatches} from './environment-render.js?v=19';
+import {npcAt,peopleNear} from './npc-life.js?v=19';
 import {resolvePlanet,planetContains} from './planets.js?v=11';
 import {ROLE_TITLES,containsPowerball} from './fringe-lore.js?v=11';
 import * as T from '../vendor/three.module.js';
@@ -9,7 +11,7 @@ import {CHUNK,REGION,WATER,BIOMES,hash,heightAt,waterDistance,biomeAt,roadSegmen
 import {equippedWeapon,guardiansFor,dummyFor} from './action-game.js?v=11';
 import {advanceMotion,beginJump} from './action-motion.js?v=6';
 import {villageHouses,homeObstacles,villageObstacles,ruinObstacles,ruinRubble,resourceObstacle,caveObstacles,foliageFor,outsideHome,circle} from './scene-layout.js?v=15';
-import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=11';
+import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=19';
 import {createAlienVegetationBatch,alienPlantGeometry,alienPlacement,PLANT_FAMILIES} from './alien-vegetation.js?v=18';
 import {salvageHut} from './salvage-huts.js?v=12';
 const materials={};const mat=(name,color)=>materials[name]||(materials[name]=new T.MeshStandardMaterial({color,roughness:1,flatShading:true}));
@@ -106,6 +108,7 @@ export class WorldRenderer {
   for(const id of chunk.ids){const n=this.nodes.get(id);if(!n)continue;n.occupied=!outsideHome(n,homes);this.showNode(n,!this.depleted.has(id));if(!n.occupied&&!this.depleted.has(id)){const o=resourceObstacle(n);if(o)shapes.push(o);}}
   for(const n of chunk.decorTrees||[])if(outsideHome(n,homes))shapes.push(circle(n.id,n.x,n.z,.45));
   for(const {batch,items,matrices,offset=0}of chunk.decorBatches||[]){for(let i=0;i<items.length;i++)batch.setMatrixAt(i+offset,outsideHome(items[i],homes)?matrices[i+offset]:new T.Matrix4().makeScale(0,0,0));batch.instanceMatrix.needsUpdate=true;}
+  for(const {batch,items,matrices}of chunk.environmentBatches||[]){for(const [i,n]of items.entries()){const visible=environmentOutsideHome(n,homes);batch.setMatrixAt(i,visible?matrices[i]:new T.Matrix4().makeScale(0,0,0));if(visible)shapes.push(environmentObstacle(n));}batch.instanceMatrix.needsUpdate=true;}
   this.collision.replace(`chunk:${chunk.cx}:${chunk.cz}`,shapes);
  }
  showNode(n,visible){visible=visible&&!n.occupied;if(n.instanced){for(const [m,i,matrix]of n.instances){if(visible)m.setMatrixAt(i,matrix);else{const hide=new T.Matrix4().makeScale(0,0,0);m.setMatrixAt(i,hide);}m.instanceMatrix.needsUpdate=true;}}else n.object.visible=visible;}
@@ -154,18 +157,20 @@ export class WorldRenderer {
  }
  addChunk(cx,cz){
   const group=new T.Group(),ids=[],disposable=[],segments=roadSegments(Math.floor(cx*CHUNK/REGION),Math.floor(cz*CHUNK/REGION));
-  const steps=20,size=CHUNK/steps,positions=[],colors=[],biomeColors={};for(const [k,v]of Object.entries(BIOMES))biomeColors[k]=new T.Color(v.color);
+  const steps=20,size=CHUNK/steps,positions=[],colors=[];
   const heights=[];for(let z=0;z<=steps;z++){heights[z]=[];for(let x=0;x<=steps;x++)heights[z][x]=heightAt(cx*CHUNK+x*size,cz*CHUNK+z*size);}
   for(let iz=0;iz<steps;iz++)for(let ix=0;ix<steps;ix++){
-   const wx=cx*CHUNK+(ix+.5)*size,wz=cz*CHUNK+(iz+.5)*size,water=waterDistance(wx,wz),road=roadDistance(wx,wz,segments);
-   let col=biomeColors[biomeAt(wx,wz)].clone();col.multiplyScalar(.88+hash(cx*steps+ix,cz*steps+iz,800)*.2);if(water<20)col.lerp(new T.Color(0x9b9965),.45);if(road<4.6)col.setHex(0x8d9a98);
+   const wx=cx*CHUNK+(ix+.5)*size,wz=cz*CHUNK+(iz+.5)*size,water=waterDistance(wx,wz);
+   const tint=groundTint(wx,wz);let col=new T.Color().setRGB(...tint,T.SRGBColorSpace);if(water<20)col.lerp(new T.Color(0x9b9965),.35);
    for(const [dx,dz]of [[0,0],[0,1],[1,0],[1,0],[0,1],[1,1]]){positions.push(cx*CHUNK+(ix+dx)*size,heights[iz+dz][ix+dx],cz*CHUNK+(iz+dz)*size);colors.push(col.r,col.g,col.b);}
   }
   const geo=new T.BufferGeometry();geo.setAttribute('position',new T.Float32BufferAttribute(positions,3));geo.setAttribute('color',new T.Float32BufferAttribute(colors,3));geo.computeVertexNormals();disposable.push(geo);
   const terrain=new T.Mesh(geo,materials.terrain||(materials.terrain=new T.MeshStandardMaterial({vertexColors:true,roughness:1,flatShading:true})));terrain.receiveShadow=true;group.add(terrain);
   const waterGeo=new T.PlaneGeometry(CHUNK,CHUNK);disposable.push(waterGeo);const water=new T.Mesh(waterGeo,materials.water||(materials.water=new T.MeshStandardMaterial({color:0x4c918d,roughness:.4,metalness:.1,transparent:true,opacity:.91})));water.rotation.x=-Math.PI/2;water.position.set((cx+.5)*CHUNK,WATER,(cz+.5)*CHUNK);water.receiveShadow=true;group.add(water);
+  const environment=environmentFor(cx,cz),roadSurface=buildRoadSurface(cx,cz,environment.pieces),groundPatches=buildGroundPatches(cx,cz,environment.patches),environmentBatches=createEnvironmentBatches(environment.props);
+  group.add(roadSurface,groundPatches);disposable.push(roadSurface.geometry,groundPatches.geometry);for(const {batch}of environmentBatches){group.add(batch);disposable.push(batch);}
   // Roads cross river channels on modular freight bridges.
-  const bridgePlaces=new Set();for(const [a,b]of segments){const d=Math.hypot(b.x-a.x,b.z-a.z),n=Math.ceil(d/7);for(let i=0;i<n;i++){const t=(i+.5)/n,x=a.x+(b.x-a.x)*t,z=a.z+(b.z-a.z)*t;if(x<cx*CHUNK||x>=(cx+1)*CHUNK||z<cz*CHUNK||z>=(cz+1)*CHUNK||waterDistance(x,z)>22)continue;const key=`${Math.round(x/6)}:${Math.round(z/6)}`;if(bridgePlaces.has(key))continue;bridgePlaces.add(key);const deck=mesh(geos.box,mat('bridge',0x778c94),x,WATER+.65,z,9,.7,8);deck.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);group.add(deck);}}
+  const bridgePlaces=new Set();for(const [a,b]of segments){const d=Math.hypot(b.x-a.x,b.z-a.z),n=Math.ceil(d/7);for(let i=0;i<n;i++){const t=(i+.5)/n,x=a.x+(b.x-a.x)*t,z=a.z+(b.z-a.z)*t;if(x<cx*CHUNK||x>=(cx+1)*CHUNK||z<cz*CHUNK||z>=(cz+1)*CHUNK||waterDistance(x,z)>22)continue;const key=`${Math.round(x/6)}:${Math.round(z/6)}`;if(bridgePlaces.has(key))continue;bridgePlaces.add(key);const deck=mesh(geos.box,mat('bridge',0x778c94),x,WATER+.65,z,14,.7,8);deck.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);group.add(deck);}}
   // A single instance per complete plant; collectible and decorative items share batches.
   const nodes=resourcesFor(cx,cz),decorBatches=[],alienBatches=[],layout=foliageFor(cx,cz);
   const resources=nodes.filter(n=>n.kind!=='stone').map(n=>alienPlacement(n,n.kind==='wood'?'tree':n.kind));
@@ -178,7 +183,7 @@ export class WorldRenderer {
    decorBatches.push({batch,items:decor,matrices,offset:collect.length});
   }
   for(const n of nodes.filter(n=>n.kind==='stone')){const object=new T.Group();object.position.set(n.x,n.y,n.z);object.add(mesh(geos.rock,mat('silicate',0x87939e),0,.9,0,1.4*n.scale,1.2*n.scale,1.1*n.scale));if(containsPowerball(n))object.add(mesh(geos.sphere,glow('powerball',0xe8bf62),0,1.65,0,.48,.48,.48));group.add(object);this.nodes.set(n.id,{...n,object,occupied:false});ids.push(n.id);}
-  this.scene.add(group);this.chunks.set(`${cx}:${cz}`,{group,terrain,ids,disposable,cx,cz,decorTrees:layout.trees,decorBatches,alienBatches});this.refreshChunkCollision(this.chunks.get(`${cx}:${cz}`));
+  this.scene.add(group);this.chunks.set(`${cx}:${cz}`,{group,terrain,ids,disposable,cx,cz,decorTrees:layout.trees,decorBatches,alienBatches,environmentBatches});this.refreshChunkCollision(this.chunks.get(`${cx}:${cz}`));
  }
  setNpcLife(life={},serverTime){this.npcLife={...(this.npcLife||{}),...life};if(serverTime)this.serverOffset=serverTime-Date.now();}
  syncRoadPeople(){

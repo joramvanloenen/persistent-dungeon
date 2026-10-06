@@ -1,6 +1,6 @@
 import {npcsFor,resolveNpc,settlement,hash,REGION,LIMIT,heightAt,WATER} from './world.js?v=11';
 import {villageObstacles} from './scene-layout.js?v=15';
-import {hitsObstacle,findSurfacePath} from './world-collision.js?v=11';
+import {hitsObstacle,findSurfacePath} from './world-collision.js?v=19';
 
 // Absolute time, not frame counters: unloading a colony never resets a person's day.
 export const WORLD_EPOCH=Date.UTC(2026,0,1),DAY_MS=30*60*1000;
