@@ -1,5 +1,5 @@
 import {groundTint,environmentFor,environmentOutsideHome,environmentObstacle} from './environment.js?v=19';
-import {buildRoadSurface,buildGroundPatches,createEnvironmentBatches} from './environment-render.js?v=19';
+import {buildRoadSurface,buildGroundPatches,createEnvironmentBatches} from './environment-render.js?v=20';
 import {npcAt,peopleNear} from './npc-life.js?v=19';
 import {resolvePlanet,planetContains} from './planets.js?v=11';
 import {ROLE_TITLES,containsPowerball} from './fringe-lore.js?v=11';

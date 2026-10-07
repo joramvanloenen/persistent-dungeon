@@ -1,6 +1,8 @@
 import * as T from '../vendor/three.module.js';
-import {CHUNK,WATER,noise,nearestSettlement} from './world.js?v=11';
-import {TERRAIN_STEP,terrainSurfaceHeight,ROAD_COLORS,PATCH_COLORS,environmentFor} from './environment.js?v=19';
+import {CHUNK,WATER} from './world.js?v=11';
+import {TERRAIN_STEP,terrainSurfaceHeight,PATCH_COLORS,environmentFor} from './environment.js?v=19';
+
+import {roadSurfacePlan} from './road-surfaces.js?v=20';
 
 const roadMaterial=new T.MeshStandardMaterial({vertexColors:true,roughness:1,flatShading:true,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
 const propMaterial=new T.MeshStandardMaterial({vertexColors:true,roughness:.92,flatShading:true});
@@ -23,15 +25,7 @@ function surfaceWriter(cx,cz){
 }
 export function buildRoadSurface(cx,cz,pieces=environmentFor(cx,cz).pieces){
  const {conform,finish}=surfaceWriter(cx,cz);
- const bounds=[-5.7,-4.1,-2.7,-1.45,1.45,2.7,4.1,5.7],bands=[0,1,2,1,2,1,0];
- for(const p of pieces){
-  const palette=p.bridge?[0x9aa8a5,0x687b83,0x445c68]:ROAD_COLORS[p.biome],jitter=q=>1+noise(q.x/23,q.z/23,10800)*.075,at=(q,offset)=>({x:q.x+p.nx*offset*(p.bridge ? .78 : jitter(q)),z:q.z+p.nz*offset*(p.bridge ? .78 : jitter(q))});
-  for(let i=0;i<bands.length;i++){const color=new T.Color(palette[bands[i]]).multiplyScalar(.91+p.wear*.16),colony=nearestSettlement(p.x,p.z).distance<85;if(colony&&!p.bridge&&i>0&&i<6)color.lerp(new T.Color(p.i%3===0?0x849393:0x6c7c80),.45);conform([at(p.start,bounds[i]),at(p.end,bounds[i]),at(p.end,bounds[i+1]),at(p.start,bounds[i+1])],color,p.bridge);}
-  // Narrow hazard paint on recovered bridge plates; interrupted strips look worn.
-  if(p.bridge&&p.i%3!==1)for(const side of [-1,1]){const mid={x:p.start.x+(p.end.x-p.start.x)*.7,z:p.start.z+(p.end.z-p.start.z)*.7};conform([at(p.start,side*5.05),at(mid,side*5.05),at(mid,side*5.4),at(p.start,side*5.4)],0xc6aa6b,true,.02);}
-  // Short transverse repairs break up the continuous wheel tracks.
-  if(!p.bridge&&p.wear>.78){const mid={x:p.start.x+(p.end.x-p.start.x)*.3,z:p.start.z+(p.end.z-p.start.z)*.3},end={x:mid.x+p.dx*.8,z:mid.z+p.dz*.8};conform([at(mid,-3.9),at(end,-3.9),at(end,3.9),at(mid,3.9)],0x7a8781,false,.012);}
- }
+ for(const surface of roadSurfacePlan(pieces))conform(surface.poly,surface.tone,surface.bridge);
  const geometry=finish(),mesh=new T.Mesh(geometry,roadMaterial);mesh.name='worn-freight-roads';mesh.receiveShadow=true;mesh.userData.roadDetail=true;return mesh;
 }
 export function buildGroundPatches(cx,cz,patches=environmentFor(cx,cz).patches){

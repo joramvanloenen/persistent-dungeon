@@ -2,7 +2,7 @@ import {RESOURCE_NAMES,ROLE_TITLES} from './fringe-lore.js?v=11';
 import {resolvePlanet,planetAt,planetContains} from './planets.js?v=11';
 import {installFringeUI} from './fringe-ui.js?v=11';
 import {Store} from './storage.js?v=19';
-import {WorldRenderer} from './render.js?v=19';
+import {WorldRenderer} from './render.js?v=20';
 import {drawMap,drawCaveMap,drawMiniMap} from './map.js?v=11';
 import {BIOMES,CHUNK,LIMIT,biomeAt,nearestSettlement,waterDistance} from './world.js?v=11';
 import {caveStatus,roomAt,resolveDungeon} from './dungeons.js?v=11';
@@ -19,10 +19,10 @@ function toast(message){$('toast').textContent=message;$('toast').classList.add(
 function status(message){$('save-status').textContent=message;}
 function openDialog(id){$(id).showModal();if(world)world.keys={};}
 function saved(){status(store.mode==='local'?'Saved on this device':'World saved');}
-function updateUI(){if(!player)return;$('health').value=player.health;$('food').value=player.food;$('water').value=player.water;$('berry-count').textContent=player.inventory.berries;$('account-name').textContent=player.name;$('rename-input').value=player.name;$('home-description').textContent=`Your landing pod in ${player.house.villageName}. Each return to The Fringe starts at its access ramp.`;$('held-weapon').textContent=equippedWeapon(player)?.name||'No weapon';$('attack-button').disabled=!equippedWeapon(player)||busy;world?.syncActionState(player);}
+function updateUI(){if(!player)return;$('health').value=player.health;$('food').value=player.food;$('water').value=player.water;$('berry-count').textContent=player.inventory.berries;$('account-name').textContent=player.name;$('rename-input').value=player.name;$('home-description').textContent=`Your landing pod in ${player.house.villageName}. Each return to The Fringe starts at its access ramp.`;const weapon=equippedWeapon(player);$('held-weapon').textContent=weapon?.name||'';$('held-weapon').hidden=!weapon;$('attack-button').hidden=!weapon;for(const [id,value]of [['health',player.health],['food',player.food],['water',player.water]])$(id).parentElement.classList.toggle('low',value<25);$('attack-button').disabled=!equippedWeapon(player)||busy;world?.syncActionState(player);}
 function chunks(){const out=[];const cx=Math.floor(player.x/CHUNK),cz=Math.floor(player.z/CHUNK);for(let x=cx-2;x<=cx+2;x++)for(let z=cz-2;z<=cz+2;z++)out.push([x,z]);return out;}
 function applySnapshot(result,position=false){world.setNpcLife(result.npcLife,result.serverTime);world.setDepleted(result.depleted||[]);world.setOthers(result.players||[]);if(result.homes)world.setHomes(result.homes);events=result.events||events;if(position){player=result.player;world.setPlayer(player);updateUI();}}
-async function sync(){if(!loaded||busy||dirty)return;try{const r=await store.request('state',{chunks:chunks()});applySnapshot(r);if(r.player.revision>player.revision){player=r.player;world.setPlayer(player);trail=[];updateUI();toast('Your traveler was updated from another session.');}}catch{status('Connection interrupted');}}
+async function sync(){if(!loaded||busy||dirty)return;try{const r=await store.request('state',{chunks:chunks()});applySnapshot(r);if(r.player.revision>player.revision){player=r.player;world.setPlayer(player);trail=[];updateUI();toast('Your traveler was updated from another session.');}}catch{if($('save-status').textContent!=='Connection interrupted')toast('Connection interrupted. Open Settings for save status.');status('Connection interrupted');}}
 async function flush(){
  if(!world||!dirty||busy)return;busy=true;status('Saving footsteps');const sentTrail=trail.slice(0,80),used=sentTrail.length,pos=trail.length>80?{...sentTrail.at(-1)}:{x:world.player.x,z:world.player.z};trailFrozen=used;
  const points=[player.dungeon||player,...sentTrail,pos],pathDistance=points.slice(1).reduce((n,q,i)=>n+Math.hypot(q.x-points[i].x,q.z-points[i].z),0),sentRun=Math.min(runDistance,pathDistance);
@@ -42,7 +42,7 @@ async function act(action){
 }
 function frame({x,z,moved,path,running,stamina}){
  if(!loaded)return;
- $('stamina').value=stamina;$('jump-button').disabled=busy||stamina<20||world.motion.height>0||Date.now()-(player.lastJump||0)<900;$('attack-button').disabled=busy||!equippedWeapon(player);
+ $('stamina').value=stamina;$('stamina-display').hidden=stamina>=99&&!running;$('jump-button').disabled=busy||stamina<20||world.motion.height>0||Date.now()-(player.lastJump||0)<900;$('attack-button').disabled=busy||!equippedWeapon(player);
  if(running&&moved)runDistance+=moved;
  if(moved){dirty=true;appendMovementTrail(trail,player.dungeon||player,path?.length?path:[{x,z}],trailFrozen);}
  const cameraYaw=world.cameraOrbit.yaw,now=Date.now(),turned=miniLast.yaw===null||Math.abs(Math.atan2(Math.sin(cameraYaw-miniLast.yaw),Math.cos(cameraYaw-miniLast.yaw)))>.0005;
@@ -51,11 +51,11 @@ function frame({x,z,moved,path,running,stamina}){
  const planet=resolvePlanet(player.planet),cave=world.cave,s=cave?null:nearestSettlement(x,z),biome=cave?cave.dungeonName:BIOMES[biomeAt(x,z)].name;
  $('location').textContent=cave?cave.dungeonName:`${planet.name} · ${s.distance<90?s.name:biome}`;$('biome').textContent=cave?'Underground':biome;$('coords').textContent=cave?'A way back is never far':`${Math.round(x)}, ${Math.round(z)}`;
  const labels={npc:()=>`Talk to ${nearby.name}`,smith:()=>`Visit ${nearby.name}'s fabrication bay`,resource:()=>`Recover ${nearby.label||RESOURCE_NAMES[nearby.kind]}`,entrance:()=>`Explore facility`,exit:()=>`Leave facility`,home:()=>`Rest at pod`};
- $('interact-button').disabled=!nearby||busy;$('interact-button').textContent=nearby?labels[nearby.type]():'Explore';const key=document.createElement('kbd');key.textContent='E';$('interact-button').append(key);
+ $('interact-button').parentElement.hidden=!nearby;$('interact-button').disabled=!nearby||busy;$('interact-button').textContent=nearby?labels[nearby.type]():'Explore';const key=document.createElement('kbd');key.textContent='E';$('interact-button').append(key);
  let tip=cave?'Follow the service corridors. Watch for active security.':s.distance<90?`${s.name} · Drifter colony`:'Unsurveyed terrain beyond the colony beacon';
  if(nearby)tip=['npc','smith'].includes(nearby.type)?`${nearby.name} · ${ROLE_TITLES[nearby.role]}`:nearby.type==='resource'?`${nearby.label||RESOURCE_NAMES[nearby.kind]} within reach`:nearby.type==='entrance'?nearby.name:nearby.type==='exit'?'The access lock leads to the surface':`${player.name}'s landing pod`;
  if(waypoint&&!nearby&&!cave){const distance=Math.round(Math.hypot(waypoint.x-x,waypoint.z-z));tip=`Waypoint · ${distance} m away`;if(distance<10){waypoint=null;toast('You reached your waypoint.');}}
- const touch=touchControls.matches||window.innerWidth<=760;$('nearby-tip').textContent=tip;$('secondary-tip').textContent=touch?'Tap to walk · Run, Jump, Attack below':'WASD · Shift to run · Space to jump · F to attack · E to interact';
+ const touch=touchControls.matches||window.innerWidth<=760;$('nearby-tip').parentElement.hidden=!waypoint||!!nearby;$('nearby-tip').textContent=tip;$('secondary-tip').textContent=touch?'Tap to walk · Run, Jump, Attack below':'WASD · Shift to run · Space to jump · F to attack · E to interact';
  $('drink-button').disabled=busy||!!cave||s.distance>48&&waterDistance(x,z)>27;$('rest-button').disabled=busy||!!cave||s.distance>85&&Math.hypot(x-player.house.x,z-player.house.z)>14;$('eat-button').disabled=busy||player.inventory.berries<1;
  $('dungeon-status').hidden=!cave;if(cave){const room=roomAt(cave,x,z),progress=caveStatus(cave.id,player,world.depleted);$('dungeon-room').textContent=room===null?'Service corridors':cave.rooms[room].name;$('dungeon-progress').textContent=`${progress.rooms}/${progress.totalRooms} chambers explored · ${progress.total-progress.collected} supplies remain`;}
  if(!cave){for(const id of [...suppressed]){const r=resolveDungeon(id);if(r&&Math.hypot(r.x-x,r.z-z)>22)suppressed.delete(id);}if(nearby?.type==='entrance'&&!suppressed.has(nearby.id)&&!busy&&!document.querySelector('dialog[open]'))showEntrance(nearby);}
@@ -89,7 +89,7 @@ async function loadWorld(){
 }
 async function boot(){try{world=new WorldRenderer($('scene'),{onWalk:walk,onFrame:frame});await store.init();if(!store.signedIn){$('loading').hidden=true;openDialog('auth-dialog');return;}await loadWorld();}catch(e){$('loading-text').textContent=e.message;const b=document.createElement('button');b.textContent='Try again';b.onclick=()=>location.reload();$('loading').append(b);}}
 $('begin-button').onclick=async()=>{try{await act({type:'rename',name:$('traveler-name').value||'Traveler'});$('welcome').close();toast('Your pod is registered. Beyond the beacon, the frontier is yours.');}catch{}};
-$('interact-button').onclick=interact;$('eat-button').onclick=()=>act({type:'eat'}).catch(()=>{});$('drink-button').onclick=()=>act({type:'drink'}).catch(()=>{});$('rest-button').onclick=()=>act({type:'rest'}).catch(()=>{});
+$('interact-button').onclick=interact;for(const [id,type]of [['eat-button','eat'],['drink-button','drink'],['rest-button','rest']])$(id).onclick=async()=>{try{await act({type});if($('pack-dialog').open)showPack();}catch{}};
 $('pack-button').onclick=async()=>{await sync();showPack();};$('map-button').onclick=()=>{mapCenter={x:world.player.x,z:world.player.z};for(const id of ['map-minus','map-plus','map-home'])$(id).hidden=!!world.cave;openDialog('map-dialog');redrawMap();};$('account-button').onclick=()=>openDialog('account-dialog');
 $('map-minus').onclick=()=>{mapSpan=Math.min(18000,mapSpan*1.5);redrawMap();};$('map-plus').onclick=()=>{mapSpan=Math.max(650,mapSpan/1.5);redrawMap();};$('map-center').onclick=()=>{mapCenter={x:world.player.x,z:world.player.z};redrawMap();};$('map-home').onclick=()=>{if(planetAt(player.house.x,player.house.z).id!==player.planet){fringeUI.transit();return;}mapCenter={x:player.house.x,z:player.house.z};waypoint={x:player.house.doorX,z:player.house.doorZ};redrawMap();};
 $('atlas').onclick=e=>{if(world.cave)return;const previousWaypoint=waypoint,c=$('atlas'),r=c.getBoundingClientRect();waypoint={x:Math.max(-LIMIT,Math.min(LIMIT,mapCenter.x+((e.clientX-r.left)/r.width-.5)*mapSpan)),z:Math.max(-LIMIT,Math.min(LIMIT,mapCenter.z+((e.clientY-r.top)/r.height-.5)*mapSpan*c.height/c.width))};if(!planetContains(player.planet,waypoint.x,waypoint.z)){waypoint=previousWaypoint;$('map-caption').textContent='Beyond this survey. Use Planet transit to reach another surface.';return;}redrawMap();$('map-caption').textContent=`Waypoint set: ${Math.round(waypoint.x)}, ${Math.round(waypoint.z)}.`;};
