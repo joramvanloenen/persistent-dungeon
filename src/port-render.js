@@ -1,5 +1,5 @@
 import * as T from '../vendor/three.module.js';
-import {landingBay} from './landing-port.js?v=24';
+import {landingBay} from './landing-port.js?v=25';
 const box=new T.BoxGeometry(1,1,1),tank=new T.CylinderGeometry(1,1,1,8),cone=new T.ConeGeometry(1,1,8),materials=new Map();
 function material(color,lit=false){const key=`${color}:${lit}`;if(!materials.has(key))materials.set(key,new T.MeshStandardMaterial({color,flatShading:true,roughness:.85,...(lit?{emissive:color,emissiveIntensity:.7}:{})}));return materials.get(key);}
 function part(g,geometry,color,x,y,z,sx,sy,sz,lit=false){const m=new T.Mesh(geometry,material(color,lit));m.position.set(x,y,z);m.scale.set(sx,sy,sz);m.castShadow=!lit;m.receiveShadow=true;g.add(m);return m;}

@@ -4,15 +4,15 @@
 <script type="module">
 import * as T from '../vendor/three.module.js';
 import {settlement} from '../src/world.js?v=11';
-import {villageHouses} from '../src/scene-layout.js?v=24';
-import {shipVisitor,portBroker} from '../src/landing-port.js?v=24';
-import {npcAt,portShipAt,advanceNpcLife,meetNpc,WORLD_EPOCH} from '../src/npc-life.js?v=24';
-import {buildSkiff,updateSkiff,buildLandingBay,buildPortFacilities} from '../src/port-render.js?v=24';
+import {villageHouses} from '../src/scene-layout.js?v=25';
+import {shipVisitor,portBroker} from '../src/landing-port.js?v=25';
+import {npcAt,portShipAt,advanceNpcLife,meetNpc,WORLD_EPOCH} from '../src/npc-life.js?v=25';
+import {buildSkiff,updateSkiff,buildLandingBay,buildPortFacilities} from '../src/port-render.js?v=25';
 import {salvageHut} from '../src/salvage-huts.js?v=12';
-import {avatar} from '../src/render.js?v=24';
+import {avatar} from '../src/render.js?v=25';
 const s=settlement(0,0),pilot=shipVisitor(s),broker=portBroker(s),canvas=document.querySelector('#port'),ctx=canvas.getContext('2d'),scene=new T.Group(),ship=buildSkiff(1),person=avatar(0xbd9578),agent=avatar(0x728e9e),houses=villageHouses(s),floor=new T.Mesh(new T.BoxGeometry(100,.05,95),new T.MeshStandardMaterial({color:0x718c79}));floor.position.set(s.x,s.y-.06,s.z);scene.add(floor,buildLandingBay(s),buildPortFacilities(s,houses),ship,person,agent);
 for(const [i,h]of houses.entries()){const hut=salvageHut(h.width,h.depth,i);hut.position.set(h.x,s.y,h.z);hut.rotation.y=h.rotation;scene.add(hut);}
-const camera=new T.PerspectiveCamera(43,780/600,.1,500),focus=new T.Vector3(s.x,s.y,s.z+8);camera.position.copy(focus).add(new T.Vector3(60,100,115));camera.lookAt(focus);camera.updateMatrixWorld();const light=new T.Vector3(-.4,.9,.25).normalize();let life=JSON.parse(localStorage.getItem('fringe-port-preview-memory')||'{}'),time=WORLD_EPOCH,last=performance.now(),lastDraw=0;
+const camera=new T.PerspectiveCamera(43,780/600,.1,500),focus=new T.Vector3(s.x,s.y,s.z+8);camera.position.copy(focus).add(new T.Vector3(40,65,75));camera.lookAt(focus);camera.updateMatrixWorld();const light=new T.Vector3(-.4,.9,.25).normalize();let life=JSON.parse(localStorage.getItem('fringe-port-preview-memory')||'{}'),time=WORLD_EPOCH,last=performance.now(),lastDraw=0;
 function seek(){const phase=document.querySelector('#phase').value,objective=document.querySelector('#mission').value;for(let t=0;t<2500000;t+=300){const at=npcAt(pilot,WORLD_EPOCH+t);if(at.phase===phase&&at.objective===objective&&at.phaseProgress>.35&&at.phaseProgress<.75){time=WORLD_EPOCH+t;life={};document.querySelector('#reply').textContent='';return;}}}
 document.querySelector('#phase').onchange=document.querySelector('#mission').onchange=seek;
 document.querySelector('#talk').onclick=()=>{const at=npcAt(pilot,time,life[pilot.id]);if(at.available===false){document.querySelector('#reply').textContent='The pilot is inside or in flight. Catch them outside.';return;}life[pilot.id]=meetNpc(pilot,life[pilot.id]||{},time);document.querySelector('#reply').textContent=`“Give me a minute. ${pilot.shipName} can wait.” Conversation pauses the pilot and their departure.`;};seek();

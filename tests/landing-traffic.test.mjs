@@ -40,3 +40,10 @@ test('actual renderer animates ships and only offers pilots who are outside; mod
  for(const phase of ['landing','walking','lodging','takeoff','away']){const now=phaseTime(n,phase);world.serverOffset=now-Date.now();world.updateNpcs(0);const at=npcAt(n,now),ship=portShipAt(s,now);assert.equal(world.npcs.get(n.id).object.visible,at.available);assert.equal(v.ship.visible,ship.visible);assert.ok(Math.abs(v.ship.position.y-ship.y)<.02);world.player={x:at.x,z:at.z};if(!at.available)assert.notEqual(world.closest()?.id,n.id);}
  const g=buildSkiff(),bay=buildLandingBay(s);assert.ok(bay.children.length>10);updateSkiff(g,{...portShipAt(s,phaseTime(n,'walking')),hatchOpen:true});assert.ok(g.userData.ramp.visible);assert.ok(!g.userData.hatch.visible);
 });
+
+test('a landing over a player permits escape, then the grounded hull blocks re-entry',()=>{
+ const s=settlement(0,0),n=shipVisitor(s),now=phaseTime(n,'objective',a=>a.objective==='supplies'),ship=portShipAt(s,now),p={...createPlayer('landing-player','Ada'),x:ship.x,z:ship.z,updatedAt:now};const exit={x:ship.x,z:ship.z+6};
+ assert.ok(!parkedShipObstacles(ship,p).some(o=>hitsObstacle(p,exit,o)));
+ assert.doesNotThrow(()=>validateAction(p,{type:'move',...exit},{now}));
+ assert.throws(()=>validateAction({...p,...exit},{type:'move',x:ship.x,z:ship.z},{now}),/solid obstacle/);
+});

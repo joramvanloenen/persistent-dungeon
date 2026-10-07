@@ -1,5 +1,5 @@
 import {allPlanets,resolvePlanet,canLaunch,transitFare} from './planets.js?v=11';
-import {LORE} from './fringe-lore.js?v=24';
+import {LORE} from './fringe-lore.js?v=25';
 export function installFringeUI({getPlayer,act,openDialog,onLanded,doc=document}){
  const $=id=>doc.getElementById(id);let waiting=false;
  function render(){const p=getPlayer();if(!p)return;const current=resolvePlanet(p.planet),payment=$('transit-payment').value,fare=transitFare(p,payment),launch=canLaunch(p);$('transit-current').textContent=`${current.name} · ${p.coins} credits · ${p.inventory.powerballs} Powerballs`;$('transit-note').textContent=p.forge?'Finish your fabrication job before booking passage.':!launch?'Return to a colony landing pad or your own pod to book passage.':fare.voucher?'Your Dugall arrival voucher covers this trip.':payment==='powerball'?'Passage uses one Powerball.':'Dugall passage costs four credits.';

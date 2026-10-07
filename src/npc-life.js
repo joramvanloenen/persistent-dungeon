@@ -1,7 +1,7 @@
 import {npcsFor,resolveNpc,settlement,hash,REGION,LIMIT,heightAt,WATER} from './world.js?v=11';
-import {landingBay,shipVisitor,portBroker,resolvePortPerson,parkedShipObstacles} from './landing-port.js?v=24';
-import {villageHouses,villageObstacles} from './scene-layout.js?v=24';
-import {hitsObstacle,findSurfacePath} from './world-collision.js?v=24';
+import {landingBay,shipVisitor,portBroker,resolvePortPerson,parkedShipObstacles} from './landing-port.js?v=25';
+import {villageHouses,villageObstacles} from './scene-layout.js?v=25';
+import {hitsObstacle,findSurfacePath} from './world-collision.js?v=25';
 
 // Absolute time, not frame counters: unloading a colony never resets a person's day.
 export const WORLD_EPOCH=Date.UTC(2026,0,1),DAY_MS=30*60*1000;
@@ -38,7 +38,7 @@ function visitorRoute(n,s){
 }
 function routeFor(n){
  if(routes.has(n.id))return routes.get(n.id);n=baseNpc(n.id)||n;
- const [,rx,rz]=n.home.split(':'),s=settlement(+rx,+rz);if(n.visitor){const route=visitorRoute(n,s);routes.set(n.id,route);return route;}let stops;
+ const [,rx,rz]=n.home.split(':'),s=settlement(+rx,+rz);if(n.visitor){const route=visitorRoute(n,s);routes.set(n.id,route);if(routes.size>256)routes.delete(routes.keys().next().value);return route;}let stops;
  if(n.broker){stops=[{x:n.x,z:n.z,activity:'checking landing manifests at the comms counter',wait:60},{x:n.x,z:n.z,activity:'selling fuel permits to passing pilots',wait:50}];}else if(n.road){
   const e=settlement(+rx+(n.axis===0?1:0),+rz+(n.axis===1?1:0)),mid={x:(s.x+e.x)/2+Math.sin(+rx+(+rz))*55,z:(s.z+e.z)/2+Math.cos(+rx-(+rz))*55};
   const inset=(a,b)=>{const length=Math.hypot(b.x-a.x,b.z-a.z);return {x:a.x+(b.x-a.x)*60/length,z:a.z+(b.z-a.z)*60/length};};
@@ -62,14 +62,14 @@ export function npcAt(n,now=Date.now(),life={}){
  const route=routeFor(n),time=mod((now-WORLD_EPOCH-pausedAt(life,now))/1000+route.offset,route.duration),segment=route.segments.find(s=>time<s.start+s.duration)||route.segments.at(-1),t=(time-segment.start)/segment.duration;
  let x=segment.a.x+(segment.b.x-segment.a.x)*t,z=segment.a.z+(segment.b.z-segment.a.z)*t,activity=segment.activity,moving=segment.moving;
  const meeting=life.meeting;if(meeting&&meeting.until>now){x=meeting.x;z=meeting.z;activity='talking with a traveler';moving=false;}
- return {...n,...(n.visitor?{phase:segment.phase,completed:segment.completed,objective:segment.objective,stay:segment.stay,available:segment.available,inside:segment.inside||false,visit:Math.floor(((now-WORLD_EPOCH-pausedAt(life,now))/1000+route.offset)/route.duration)*6+segment.visit,phaseProgress:Math.max(0,Math.min(1,t))}:{}),x,z,y:n.road?Math.max(WATER+.8,heightAt(x,z)):heightAt(x,z),activity,moving,heading:Math.atan2(segment.b.x-segment.a.x,segment.b.z-segment.a.z),schedule:route.segments.filter(s=>!s.moving).map(s=>s.activity),day:worldDay(now)};
+ return {...n,...(n.visitor?{phase:segment.phase,completed:segment.completed,objective:segment.objective,stay:segment.stay,available:segment.available,inside:segment.inside||false,visit:Math.floor(((now-WORLD_EPOCH-pausedAt(life,now))/1000+route.offset)/route.duration)*6+segment.visit,phaseProgress:Math.max(0,Math.min(1,t))}:{}),x,z,y:n.road?Math.max(WATER+.8,heightAt(x,z)):heightAt(x,z),activity,moving,heading:n.broker?Math.PI/2:n.visitor&&segment.phase==='objective'?(segment.objective==='meeting'?-Math.PI/2:Math.PI):Math.atan2(segment.b.x-segment.a.x,segment.b.z-segment.a.z),schedule:[...new Set(route.segments.filter(s=>!s.moving).map(s=>s.activity))],day:worldDay(now)};
 }
 export function locateNpc(id,now=Date.now(),life={}){const n=npcAt(baseNpc(id),now,life[id]||{});return n?.available===false?null:n;}
 export function portShipAt(s,now=Date.now(),life={}){
  const pilot=shipVisitor(s),at=npcAt(pilot,now,life[pilot.id]||{}),bay=landingBay(s),t=at.phaseProgress,ease=t*t*(3-2*t),landing=at.phase==='landing',takeoff=at.phase==='takeoff',flying=landing||takeoff,q=landing?1-ease:takeoff?ease:0;
  return {id:pilot.shipId,name:pilot.shipName,pilot:pilot.id,x:bay.x+(landing?-1:1)*q*65,y:bay.y+q*55,z:bay.z-q*35,phase:at.phase,visible:at.phase!=='away',parked:!flying&&at.phase!=='away',hatchOpen:['disembarking','walking','objective','finished','lodging','returning','boarding'].includes(at.phase),enginePower:flying?1:at.phase==='sealed'?.6:0,visit:at.visit};
 }
-export function portCollisionsNear(p,now=Date.now(),life={},radius=270){const shapes=[],rx=Math.floor(p.x/REGION),rz=Math.floor(p.z/REGION);for(let x=rx-1;x<=rx+1;x++)for(let z=rz-1;z<=rz+1;z++){if(Math.abs(x*REGION)>LIMIT||Math.abs(z*REGION)>LIMIT)continue;const s=settlement(x,z);if(Math.hypot(s.x-p.x,s.z+13-p.z)<radius)shapes.push(...parkedShipObstacles(portShipAt(s,now,life)));}return shapes;}
+export function portCollisionsNear(p,now=Date.now(),life={},radius=270){const shapes=[],rx=Math.floor(p.x/REGION),rz=Math.floor(p.z/REGION);for(let x=rx-1;x<=rx+1;x++)for(let z=rz-1;z<=rz+1;z++){if(Math.abs(x*REGION)>LIMIT||Math.abs(z*REGION)>LIMIT)continue;const s=settlement(x,z);if(Math.hypot(s.x-p.x,s.z+13-p.z)<radius)shapes.push(...parkedShipObstacles(portShipAt(s,now,life),p));}return shapes;}
 export function peopleNear(p,now=Date.now(),life={},radius=850){
  if(p.dungeon)return [];
  const rx=Math.floor(p.x/REGION),rz=Math.floor(p.z/REGION),people=[];

@@ -1,19 +1,19 @@
-import {shipVisitor,portBroker,parkedShipObstacles} from './landing-port.js?v=24';
-import {buildSkiff,updateSkiff,buildLandingBay,buildPortFacilities} from './port-render.js?v=24';
+import {shipVisitor,portBroker,parkedShipObstacles} from './landing-port.js?v=25';
+import {buildSkiff,updateSkiff,buildLandingBay,buildPortFacilities} from './port-render.js?v=25';
 import {groundTint,environmentFor,environmentOutsideHome,environmentObstacle} from './environment.js?v=19';
-import {buildRoadSurface,buildGroundPatches,createEnvironmentBatches} from './environment-render.js?v=24';
-import {npcAt,peopleNear,portShipAt} from './npc-life.js?v=24';
+import {buildRoadSurface,buildGroundPatches,createEnvironmentBatches} from './environment-render.js?v=25';
+import {npcAt,peopleNear,portShipAt} from './npc-life.js?v=25';
 import {resolvePlanet,planetContains} from './planets.js?v=11';
-import {ROLE_TITLES,containsPowerball} from './fringe-lore.js?v=24';
+import {ROLE_TITLES,containsPowerball} from './fringe-lore.js?v=25';
 import * as T from '../vendor/three.module.js';
 import {resolveDungeon,ruinFor,caveWalkable,caveStatus,roomAt,cavePathClear} from './dungeons.js?v=11';
-import {buildDungeon} from './dungeon-render.js?v=24';
+import {buildDungeon} from './dungeon-render.js?v=25';
 import {CAMERA_LIMITS,wrapAngle,clampPitch,advanceOrbit,orbitPosition} from './camera-controls.js?v=3';
 import {CHUNK,REGION,WATER,BIOMES,hash,heightAt,waterDistance,biomeAt,roadSegments,roadDistance,settlement,npcsFor,resourcesFor,nearestSettlement,smithFor} from './world.js?v=11';
 import {equippedWeapon,guardiansFor,dummyFor} from './action-game.js?v=11';
 import {advanceMotion,beginJump} from './action-motion.js?v=6';
-import {villageHouses,homeObstacles,villageObstacles,ruinObstacles,ruinRubble,resourceObstacle,caveObstacles,foliageFor,outsideHome,circle} from './scene-layout.js?v=24';
-import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=24';
+import {villageHouses,homeObstacles,villageObstacles,ruinObstacles,ruinRubble,resourceObstacle,caveObstacles,foliageFor,outsideHome,circle} from './scene-layout.js?v=25';
+import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=25';
 import {createAlienVegetationBatch,alienPlantGeometry,alienPlacement,PLANT_FAMILIES} from './alien-vegetation.js?v=18';
 import {salvageHut} from './salvage-huts.js?v=12';
 const materials={};const mat=(name,color)=>materials[name]||(materials[name]=new T.MeshStandardMaterial({color,roughness:1,flatShading:true}));
@@ -197,10 +197,10 @@ export class WorldRenderer {
   if(this.cave)return;const now=Date.now()+(this.serverOffset||0);
   for(const n of this.npcs.values()){
    const next=npcAt(n,now,this.npcLife?.[n.id]);Object.assign(n,next);n.object.visible=n.available!==false;n.object.position.set(n.x,n.y,n.z);
-   if(n.moving)n.object.rotation.y=n.heading;
+   if(n.moving||n.visitor||n.broker)n.object.rotation.y=n.heading;
    for(const [i,leg]of (n.object.userData.legs||[]).entries())leg.rotation.x=n.moving?Math.sin(now*.007+i*Math.PI)*.4:0;
   }
-  for(const v of this.villages?.values()||[]){const state=portShipAt(v,now,this.npcLife);updateSkiff(v.ship,state);this.collision?.replace(`ship:${v.id}`,parkedShipObstacles(state));}
+  for(const v of this.villages?.values()||[]){const state=portShipAt(v,now,this.npcLife);updateSkiff(v.ship,state);this.collision?.replace(`ship:${v.id}`,parkedShipObstacles(state,this.player));}
  }
  addVillage(s){const group=new T.Group();
   for(const [i,h]of villageHouses(s).entries()){const house=salvageHut(h.width,h.depth,i);house.position.set(h.x,s.y,h.z);house.rotation.y=h.rotation;group.add(house);}

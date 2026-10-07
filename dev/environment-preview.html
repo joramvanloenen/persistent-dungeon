@@ -5,8 +5,8 @@
 import * as T from '../vendor/three.module.js';
 import {CHUNK,heightAt,WATER} from '../src/world.js?v=11';
 import {environmentFor,groundTint,TERRAIN_STEP,terrainSurfaceHeight} from '../src/environment.js?v=19';
-import {buildRoadSurface,buildGroundPatches,createEnvironmentBatches} from '../src/environment-render.js?v=24';
-import {foliageFor} from '../src/scene-layout.js?v=24';
+import {buildRoadSurface,buildGroundPatches,createEnvironmentBatches} from '../src/environment-render.js?v=25';
+import {foliageFor} from '../src/scene-layout.js?v=25';
 import {alienPlacement,createAlienVegetationBatch,PLANT_FAMILIES} from '../src/alien-vegetation.js?v=18';
 const sites={junction:[0,0],meadow:[-16,-15],forest:[-16,-9],marsh:[-16,-2],tundra:[-16,6],highlands:[-13,-11],desert:[-7,-14]},canvas=document.querySelector('#surface'),ctx=canvas.getContext('2d'),biome=document.querySelector('#biome'),view=document.querySelector('#view');
 function draw(){

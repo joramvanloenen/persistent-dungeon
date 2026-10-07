@@ -1,10 +1,10 @@
-import {locateNpc,portCollisionsNear} from './npc-life.js?v=24';
-import {RESOURCE_NAMES,loreReply,containsPowerball} from './fringe-lore.js?v=24';
+import {locateNpc,portCollisionsNear} from './npc-life.js?v=25';
+import {RESOURCE_NAMES,loreReply,containsPowerball} from './fringe-lore.js?v=25';
 import {applyTransit,planetAt,planetContains} from './planets.js?v=11';
 import {initialPlayer,nearestSettlement,waterDistance,resolveResource,resolveNpc,LIMIT,roadDistance,roadSegments,REGION,smithFor,settlement} from './world.js?v=11';
 import {normalizePlayer} from './homes.js?v=11';
 import {applyActionGame} from './action-game.js?v=11';
-import {buildSurfaceCollisions,waterPathClear} from './world-collision.js?v=24';
+import {buildSurfaceCollisions,waterPathClear} from './world-collision.js?v=25';
 import {resolveDungeon,resolveCaveResource,cavePathClear,caveWalkable,roomAt,ruinFor} from './dungeons.js?v=11';
 export const RESOURCE_LABELS=RESOURCE_NAMES;
 export function cleanName(s){return String(s||'Traveler').trim().slice(0,28)||'Traveler';}
