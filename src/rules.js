@@ -1,3 +1,4 @@
+import {characterGreeting,personalReply,voiceReply,characterFallback} from './npc-dialogue.js?v=26';
 import {locateNpc,portCollisionsNear} from './npc-life.js?v=25';
 import {RESOURCE_NAMES,loreReply,containsPowerball} from './fringe-lore.js?v=25';
 import {applyTransit,planetAt,planetContains} from './planets.js?v=11';
@@ -52,16 +53,21 @@ export function validateAction(input,a,context={}) {
  }
  next.revision=(p.revision||0)+1;next.updatedAt=now;return {player:next,extra,summary};
 }
-export function npcGreeting(npc,p,known=false){return known?`Back on the surface, ${p.name}? ${npc.village} is still holding together. What did you find?`:{gatherer:`Fresh landing? I'm ${npc.name}. Out here, biomass and silicate are worth more than promises. Keep your scanner close.`,keeper:`Welcome to ${npc.village}. I'm ${npc.name}, colony steward. Your landing pod is yours. Beyond our beacon, you're on your own.`,wayfarer:`I'm ${npc.name}. Freight runner. Dugall gets you here; the Drifters teach you how to stay alive. Looking for another planet?`,pilot:`${npc.name}. That skiff on the pad is mine — ${npc.shipName}. I’m ${npc.activity}. I can spare a minute.`,smith:`${npc.name}. Fabricator. Bring alloy fragments, biomass, and credits. I'll rent you the induction bay. Orange heat, then a clean strike pattern.`}[npc.role];}
-export function npcReply(npc,p,message,memories,observations=[]) {
+export function npcGreeting(npc,p,known=false){return characterGreeting(npc,p,known);}
+export function npcReply(npc,p,message,memories=[],observations=[]){
+ const personal=personalReply(npc,p,message);if(personal)return personal;
+ if(!/remember|recall|told|memory|know about|what did/i.test(message)&&/\b(?:hello|hi|hey|greetings?)\b/i.test(message))return npcGreeting(npc,p,memories.some(m=>m.playerId===p.id));
+ return voiceReply(npc,message,worldReply(npc,p,message,memories,observations));
+}
+function worldReply(npc,p,message,memories,observations=[]) {
  const mine=memories.filter(m=>m.playerId===p.id),lower=message.toLowerCase(),words=lower.match(/[\p{L}\p{N}]{4,}/gu)||[];
  const stop=new Set(['remember','recall','about','what','told','know','that','your','have','would','please']);
  const scored=memories.map((m,i)=>({m,score:words.filter(w=>!stop.has(w)).reduce((s,w)=>s+(m.message.toLowerCase().includes(w)?1:0),0),i})).filter(x=>x.score>0).sort((a,b)=>b.score-a.score||a.i-b.i),match=scored[0]?.m;
+ const history=loreReply(message);
+ if(/remember|recall|told|memory|onthoud|weet|verteld|what did (?:i|we|you) (?:say|tell)/.test(lower)||/know about|what did/.test(lower)&&!history){const m=match||mine[0]||memories[0];return m?`${m.playerId===p.id?'You':m.playerName||'A traveler'} spoke of this: “${m.message}” A detail like that stays with a person.`:`We haven't traded stories yet, ${p.name}. What should I remember?`;}
  if(/schedule|routine|your day|what are you doing|where are you going/.test(lower))return `Right now I'm ${npc.activity||'working in the colony'}. My usual circuit: ${(npc.schedule||[]).join('; ')||'the colony tracks'}.`;
  if(/observ|notice|seen|saw|happening|news|around here/.test(lower)){const matching=observations.filter(o=>words.some(w=>!['what','have','noticed','around','here','seen','observations'].includes(w)&&o.summary.toLowerCase().includes(w)));const recent=(matching.length?matching:observations).slice().sort((a,b)=>(b.kind==='witness')-(a.kind==='witness')||b.createdAt-a.createdAt).slice(0,3);return recent.length?recent.map(o=>o.summary).join(' '):`I'm ${npc.activity||'watching the colony tracks'}. No fresh sightings to report yet.`;}
  if(npc.visitor&&/ship|skiff|pilot|objective|purpose|why are you here|stay|leaving/.test(lower)&&!/remember|recall/.test(lower))return `I fly ${npc.shipName}. Right now I’m ${npc.activity}. ${npc.stay?'I’m renting a crew pod before the next hop.':'Once my business is done, I’ll board my own skiff and lift off.'}`;
- const history=loreReply(message);
- if(/remember|recall|told|memory|onthoud|weet|verteld|what did (?:i|we|you) (?:say|tell)/.test(lower)||/know about|what did/.test(lower)&&!history){const m=match||mine[0]||memories[0];return m?`${m.playerId===p.id?'You':m.playerName||'A traveler'} spoke of this: “${m.message}” A detail like that stays with a person.`:`We haven't traded stories yet, ${p.name}. What should I remember?`;}
  if(history)return history;
  if(/ruin|dungeon|cave|barrow|ancient|facility|bunker|site/.test(lower))return `There's a sealed industrial site beyond ${npc.village}. Old freight hardware, abandoned extraction lines, active security. Diamond marks on the survey locate the access locks. Supplies remain below, but don't count on the power being off.`;
  if(/home|house|roof|pod/.test(lower))return `Your landing pod is at the edge of ${p.house?.villageName||npc.village}. Its marker is on your surface survey. You'll wake there when you return; your cargo and conversations stay with you.`;
@@ -72,7 +78,6 @@ export function npcReply(npc,p,message,memories,observations=[]) {
  if(/smith|forge|weapon|craft|fabricat/.test(lower)){const s=nearestSettlement(p.x,p.z);let best=null,dist=Infinity;for(let x=s.rx-2;x<=s.rx+2;x++)for(let z=s.rz-2;z<=s.rz+2;z++){const n=smithFor(settlement(x,z));if(n&&Math.hypot(p.x-n.x,p.z-n.z)<dist){best=n;dist=Math.hypot(p.x-n.x,p.z-n.z);}}return best?`${best.name} runs a fabrication bay in ${best.village}. Look for the tool mark on your survey. Salvage silicate for alloy fragments, or buy a supply bundle. Pay the rental fee, heat the blank, and complete its strike pattern.`:'Follow a colony beacon to find a fabrication bay.';}
  if(/hello|hi\b|hey|greet/.test(lower))return npcGreeting(npc,p,mine.length>0);
  if(match&&match.playerId!==p.id)return `${match.playerName||'Another traveler'} spoke of something similar: “${match.message}” Strange how stories find each other.`;
- const starts={pilot:'I carry cargo and stories between colonies.',gatherer:'Old hardware keeps secrets. Drifters do too.',keeper:'I hear a lot over the colony comms.',wayfarer:'A good story can buy passage out here.',smith:'Alloy holds its shape. I hold onto a good story.'};
- return `${starts[npc.role]} ${/\?$/.test(message)?`I can't answer that yet, ${p.name}. But I'll keep your question in mind.`:`“${message}” I'll remember your words, ${p.name}.`}`;
+ return characterFallback(npc,p,message);
 }
 export function createPlayer(id,name,plot=0){const p=normalizePlayer({...initialPlayer(id,cleanName(name)),introduced:false,updatedAt:Date.now()},plot);p.x=p.house.doorX;p.z=p.house.doorZ;return p;}

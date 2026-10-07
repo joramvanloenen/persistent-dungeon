@@ -1,6 +1,6 @@
 import {peopleNear,baseNpc,locateNpc,advanceNpcLife,witnessAction,rememberObservation,meetNpc,mergeLifeMaps} from './npc-life.js?v=25';
 import CONFIG from '../config.js';
-import {createPlayer,validateAction} from './rules.js?v=25';
+import {createPlayer,validateAction} from './rules.js?v=26';
 import {normalizePlayer} from './homes.js?v=11';
 const LOCAL_KEY='evermere-local-v1';
 export class Store {
