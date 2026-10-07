@@ -68,7 +68,8 @@ kbd { font-size:10px; padding:2px 5px; color:var(--teal); opacity:1; }
 .dialog { border-top-width:2px; box-shadow:0 14px 60px #0008; }
 .dialog::backdrop { background:#06121887; }
 .dialog h2 { font-size:24px; color:var(--ink); }
-.dialog .close { background:#17343b; color:var(--muted); }
+.dialog > form:first-child { position:sticky; top:0; height:0; z-index:2; }
+.dialog .close { width:44px; height:44px; min-height:44px; top:-12px; right:-8px; background:#17343b; color:var(--muted); }
 .dialog .close:hover { background:var(--coral); color:#14262b; }
 .dialog p,.dialog label { color:var(--ink); }
 .dialog .subtle,.dialog .npc-role,.dialog .npc-stage { color:var(--muted); }
