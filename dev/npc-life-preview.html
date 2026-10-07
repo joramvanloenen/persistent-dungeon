@@ -3,9 +3,9 @@
 </style></head><body><h1>The Fringe / Colony life</h1><p>A view of the game's actual schedule and route code. Residents stop at their jobs; two freight runners travel the roads. This preview uses a separate demo memory.</p><div class="controls"><label>Time speed <select id="speed"><option value="1">Real time</option><option value="10" selected>10×</option><option value="60">60×</option><option value="0">Paused</option></select></label><label>View <select id="view"><option value="town">Colony</option><option value="road">Freight roads</option></select></label><button id="listen">Pause selected Drifter</button><a href="alien-vegetation-preview.html">Alien botany</a></div><main><section><canvas id="map" width="720" height="580" aria-label="Live positions along colony and road routes"></canvas><p id="clock"></p></section><aside><div id="people"></div><p id="response">Select a Drifter to hear their observations.</p><button id="observations">Ask what they have seen</button></aside></main>
 <script type="module">
 import {settlement,npcsFor,roadSegments} from '../src/world.js?v=11';
-import {villageObstacles} from '../src/scene-layout.js?v=15';
-import {npcAt,roadPeopleFor,advanceNpcLife,meetNpc,WORLD_EPOCH,DAY_MS} from '../src/npc-life.js?v=17';
-import {npcReply} from '../src/rules.js?v=17';
+import {villageObstacles} from '../src/scene-layout.js?v=24';
+import {npcAt,roadPeopleFor,advanceNpcLife,meetNpc,WORLD_EPOCH,DAY_MS} from '../src/npc-life.js?v=24';
+import {npcReply} from '../src/rules.js?v=24';
 const s=settlement(0,0),people=[...npcsFor(s),...roadPeopleFor(0,0)],life={},canvas=document.querySelector('#map'),ctx=canvas.getContext('2d'),cards=new Map();let time=WORLD_EPOCH+280000,last=performance.now(),selected=people[0];
 for(const n of people){const card=document.createElement('div');card.className='person';const button=document.createElement('button');button.textContent=n.name;button.onclick=()=>{selected=n;report();};const info=document.createElement('div');info.textContent=n.road?'Freight runner':n.role;const activity=document.createElement('small');info.append(activity);card.append(button,info);document.querySelector('#people').append(card);cards.set(n.id,{button,activity});}
 function report(){const n=npcAt(selected,time,life[selected.id]);document.querySelector('#response').textContent=npcReply(n,{id:'demo',name:'Visitor'},'What have you noticed?',[],life[n.id]?.observations||[]);}

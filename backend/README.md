@@ -67,3 +67,7 @@ The public Pages build still uses browser storage until `config.js` points to a 
 ## Surface variation and road detail
 
 Deploy the updated shared `src/` and restart Node, or redeploy the Supabase `world` function. No SQL migration is required for this update. `environment.js` provides deterministic scenery IDs and solid footprints; movement validation uses the same data as the renderer and clears scenery around database-owned home plots. Terrain, settlement, home, resource, NPC, and dungeon IDs retain their existing meanings. New visual road surfaces use the existing road network, so travelers and map routes stay aligned.
+
+### Landing traffic
+
+Deploy the updated `src/npc-life.js`, `landing-port.js`, `scene-layout.js`, `world-collision.js` and `rules.js` together, then restart Node or redeploy the Supabase `world` function. No new table or migration is required: pilots and port brokers use the existing `npc_life` and conversation-memory tables. Each colony has one scheduled pilot and owned skiff. Absolute world time advances visits while a colony is unloaded; the same persisted conversation pause holds both pilot and ship. Visit objectives, completed stops and short crew-pod stays are retained as observations. Catchup records at most one world day, like resident routines. Pages-only play continues using local saves until a shared backend is configured.

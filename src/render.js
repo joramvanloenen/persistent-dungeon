@@ -1,17 +1,19 @@
+import {shipVisitor,portBroker,parkedShipObstacles} from './landing-port.js?v=24';
+import {buildSkiff,updateSkiff,buildLandingBay,buildPortFacilities} from './port-render.js?v=24';
 import {groundTint,environmentFor,environmentOutsideHome,environmentObstacle} from './environment.js?v=19';
-import {buildRoadSurface,buildGroundPatches,createEnvironmentBatches} from './environment-render.js?v=23';
-import {npcAt,peopleNear} from './npc-life.js?v=19';
+import {buildRoadSurface,buildGroundPatches,createEnvironmentBatches} from './environment-render.js?v=24';
+import {npcAt,peopleNear,portShipAt} from './npc-life.js?v=24';
 import {resolvePlanet,planetContains} from './planets.js?v=11';
-import {ROLE_TITLES,containsPowerball} from './fringe-lore.js?v=11';
+import {ROLE_TITLES,containsPowerball} from './fringe-lore.js?v=24';
 import * as T from '../vendor/three.module.js';
 import {resolveDungeon,ruinFor,caveWalkable,caveStatus,roomAt,cavePathClear} from './dungeons.js?v=11';
-import {buildDungeon} from './dungeon-render.js?v=11';
+import {buildDungeon} from './dungeon-render.js?v=24';
 import {CAMERA_LIMITS,wrapAngle,clampPitch,advanceOrbit,orbitPosition} from './camera-controls.js?v=3';
 import {CHUNK,REGION,WATER,BIOMES,hash,heightAt,waterDistance,biomeAt,roadSegments,roadDistance,settlement,npcsFor,resourcesFor,nearestSettlement,smithFor} from './world.js?v=11';
 import {equippedWeapon,guardiansFor,dummyFor} from './action-game.js?v=11';
 import {advanceMotion,beginJump} from './action-motion.js?v=6';
-import {villageHouses,homeObstacles,villageObstacles,ruinObstacles,ruinRubble,resourceObstacle,caveObstacles,foliageFor,outsideHome,circle} from './scene-layout.js?v=15';
-import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=19';
+import {villageHouses,homeObstacles,villageObstacles,ruinObstacles,ruinRubble,resourceObstacle,caveObstacles,foliageFor,outsideHome,circle} from './scene-layout.js?v=24';
+import {CollisionIndex,moveWithCollisions,findSurfacePath,waterPathClear} from './world-collision.js?v=24';
 import {createAlienVegetationBatch,alienPlantGeometry,alienPlacement,PLANT_FAMILIES} from './alien-vegetation.js?v=18';
 import {salvageHut} from './salvage-huts.js?v=12';
 const materials={};const mat=(name,color)=>materials[name]||(materials[name]=new T.MeshStandardMaterial({color,roughness:1,flatShading:true}));
@@ -152,7 +154,7 @@ export class WorldRenderer {
   this.terrain=[...this.chunks.values()].map(c=>c.terrain);for(const [id,ruin]of this.ruins)if(Math.hypot(ruin.x-this.player.x,ruin.z-this.player.z)>CHUNK*(r+2)){this.scene.remove(ruin.group);ruin.group.traverse(o=>{if(o.isInstancedMesh)o.dispose();});ruin.label.remove();this.ruins.delete(id);this.collision?.remove(id);}
   const rx=Math.floor(this.player.x/REGION),rz=Math.floor(this.player.z/REGION),vWant=new Set();
   for(let a=rx-1;a<=rx+1;a++)for(let b=rz-1;b<=rz+1;b++){const ruin=ruinFor(a,b);if(Math.hypot(ruin.x-this.player.x,ruin.z-this.player.z)<CHUNK*(r+1)&&!this.ruins.has(ruin.id))this.addRuin(ruin);const s=settlement(a,b);if(Math.hypot(s.x-this.player.x,s.z-this.player.z)<CHUNK*3.2){vWant.add(s.id);if(!this.villages.has(s.id))this.addVillage(s);}}
-  for(const [id,v]of this.villages)if(!vWant.has(id)){this.scene.remove(v.group);v.label.remove();for(const npc of v.npcs){this.npcs.get(npc.id)?.label.remove();this.npcs.delete(npc.id);}this.villages.delete(id);this.collision?.remove(id);}
+  for(const [id,v]of this.villages)if(!vWant.has(id)){this.scene.remove(v.group);v.label.remove();for(const npc of v.npcs){this.npcs.get(npc.id)?.label.remove();this.npcs.delete(npc.id);}this.villages.delete(id);this.collision?.remove(id);this.collision?.remove(`ship:${id}`);}
   this.syncActionState(this.player);
  }
  addChunk(cx,cz){
@@ -194,26 +196,27 @@ export class WorldRenderer {
  updateNpcs(dt){
   if(this.cave)return;const now=Date.now()+(this.serverOffset||0);
   for(const n of this.npcs.values()){
-   const next=npcAt(n,now,this.npcLife?.[n.id]);Object.assign(n,next);n.object.position.set(n.x,n.y,n.z);
+   const next=npcAt(n,now,this.npcLife?.[n.id]);Object.assign(n,next);n.object.visible=n.available!==false;n.object.position.set(n.x,n.y,n.z);
    if(n.moving)n.object.rotation.y=n.heading;
    for(const [i,leg]of (n.object.userData.legs||[]).entries())leg.rotation.x=n.moving?Math.sin(now*.007+i*Math.PI)*.4:0;
   }
+  for(const v of this.villages?.values()||[]){const state=portShipAt(v,now,this.npcLife);updateSkiff(v.ship,state);this.collision?.replace(`ship:${v.id}`,parkedShipObstacles(state));}
  }
  addVillage(s){const group=new T.Group();
   for(const [i,h]of villageHouses(s).entries()){const house=salvageHut(h.width,h.depth,i);house.position.set(h.x,s.y,h.z);house.rotation.y=h.rotation;group.add(house);}
-  // Reclaimed water recycler and private freight shuttle. Footprints match scene-layout.
+  // Reclaimed water recycler, working landing bay and visiting skiff.
   const well=new T.Mesh(new T.CylinderGeometry(2,2,1.1,10),mat('recyclerBase',0x73888b));well.position.set(s.x,s.y+.55,s.z-1);group.add(well,mesh(geos.box,mat('recyclerTank',0x617a81),s.x,s.y+2.1,s.z-1,2.5,2,2.5),mesh(geos.box,glow('recyclerDisplay',0x75b9bd),s.x,s.y+2.3,s.z+.3,1,.55,.1));
-  const padZ=s.z+13;group.add(mesh(geos.box,mat('freightPad',0x728589),s.x,s.y+.1,padZ,14,.2,13),mesh(geos.box,mat('shuttleHull',0xadb9b4),s.x,s.y+1.75,padZ,5,2.6,9),mesh(geos.box,mat('shuttleWing',0x536f7d),s.x,s.y+1.1,padZ,11,.45,4),mesh(geos.box,mat('shuttleCockpit',0x28475d),s.x,s.y+2.8,padZ+3.6,3.3,.8,1.8));for(const x of [-4,4])group.add(mesh(geos.box,mat('shuttleEngine',0x42596a),s.x+x,s.y+1.5,padZ,1.6,1.9,5),mesh(geos.box,glow('engineCore',0x85c8ce),s.x+x,s.y+1.5,padZ-2.55,1.1,1.2,.12));
+  const ship=buildSkiff(Math.floor(hash(s.rx,s.rz,9616)*3));group.add(buildLandingBay(s),buildPortFacilities(s,villageHouses(s)),ship);
   const smith=smithFor(s);if(smith){const x=smith.forgeX,z=smith.forgeZ,y=s.y;group.add(mesh(geos.box,mat('fabricationHull',0x859794),x,y+1,z,5,2,4),mesh(geos.box,glow('inductionHeat',0xe8a06a),x,y+1.4,z+2.03,3,.7,.1),mesh(geos.box,mat('powerStack',0x4e6571),x-1.7,y+4,z-1,1,6,1),mesh(geos.box,mat('shapePress',0x536e7a),x+4,y+1,z+1,2.5,.7,1.1),mesh(geos.box,mat('pressBase',0x687e82),x+4,y+.4,z+1,1,1,1),mesh(geos.box,glow('pressStatus',0x72b7b5),x+4,y+1.4,z+1,.8,.08,.4));}
 
-  const npcs=npcsFor(s);for(const n of npcs){const person=avatar([0xb29054,0x6c8c76,0xa5826c,0x8c6350][npcs.indexOf(n)]);person.position.set(n.x,n.y,n.z);person.rotation.y=hash(s.rx,s.rz,npcs.indexOf(n)+1900)*6.28;group.add(person);const label=document.createElement('div');label.className='world-label';label.textContent=`${n.name} · ${ROLE_TITLES[n.role]}`;this.labelContainer.append(label);this.npcs.set(n.id,{...n,object:person,label});}
-  const label=document.createElement('div');label.className='world-label village';label.textContent=s.name;this.labelContainer.append(label);this.villages.set(s.id,{...s,group,npcs,label});this.scene.add(group);this.collision??=new CollisionIndex();this.collision.replace(s.id,villageObstacles(s));
-  if(this.player)this.syncActionState(this.player);
+  const npcs=[...npcsFor(s),portBroker(s),shipVisitor(s)];for(const n of npcs){const person=avatar([0xb29054,0x6c8c76,0xa5826c,0x8c6350,0x728e9e,0xbd9578][npcs.indexOf(n)]);person.position.set(n.x,n.y,n.z);person.rotation.y=hash(s.rx,s.rz,npcs.indexOf(n)+1900)*6.28;group.add(person);const label=document.createElement('div');label.className='world-label';label.textContent=`${n.name} · ${ROLE_TITLES[n.role]}`;this.labelContainer.append(label);this.npcs.set(n.id,{...n,object:person,label});}
+  const label=document.createElement('div');label.className='world-label village';label.textContent=s.name;this.labelContainer.append(label);this.villages.set(s.id,{...s,group,npcs,label,ship});this.scene.add(group);this.collision??=new CollisionIndex();this.collision.replace(s.id,villageObstacles(s));
+  if(this.player)this.syncActionState(this.player);this.updateNpcs(0);
  }
  labels(){
   if(this.cave){for(const e of this.labelContainer.children)e.style.display='none';return;}
   for(const n of [...this.npcs.values(),...this.villages.values(),...this.ruins.values(),...this.homes.values()]){
-   const distance=Math.hypot(this.player.x-n.x,this.player.z-n.z),isVillage=!!n.npcs,isRuin=!!n.dungeonName,isHome=!!n.owner,visible=distance<(isRuin?420:isHome?170:isVillage?300:45);
+   const distance=Math.hypot(this.player.x-n.x,this.player.z-n.z),isVillage=!!n.npcs,isRuin=!!n.dungeonName,isHome=!!n.owner,visible=n.available!==false&&distance<(isRuin?420:isHome?170:isVillage?300:45);
    if(isVillage||isHome){const close=distance<240,huts=isVillage?n.group.children.slice(0,7):n.group.children.slice(0,1);for(const hut of huts)if(hut.userData.detailMeshes&&hut.userData.detailVisible!==close){for(const detail of hut.userData.detailMeshes)detail.visible=close;hut.userData.detailVisible=close;}}
    const point=this.projectedLabel.set(n.x,n.y+(isRuin?11:isVillage?14:isHome?10:4),n.z).project(this.camera);n.label.style.display=visible&&point.z>-1&&point.z<1&&Math.abs(point.x)<1.15&&Math.abs(point.y)<1.15?'block':'none';n.label.style.left='0';n.label.style.top='0';n.label.style.transform=`translate3d(${(point.x*.5+.5)*this.container.clientWidth}px,${(-point.y*.5+.5)*this.container.clientHeight}px,0) translate(-50%,-100%)`;
    if(isRuin){const state=caveStatus(n.id,{caves:this.exploration},this.depleted),stamp=[state.entered,state.explored,state.collected].join(':');if(n.labelStamp===stamp)continue;n.labelStamp=stamp;n.label.replaceChildren();const a=document.createElement('span'),b=document.createElement('span'),name=document.createElement('small');a.textContent=state.explored?'◈✓':state.entered?'◈':'◇';a.className=state.entered?'explored':'unexplored';a.title=state.explored?'All chambers explored':state.entered?'Previously entered':'Unexplored';b.textContent=state.cleared?'▣✓':'▣';b.className=state.cleared?'cleared':'supplies';b.title=state.cleared?'All resources gathered':`${state.total-state.collected} resources remain`;name.textContent=n.name;n.label.append(a,b,name);n.label.setAttribute('aria-label',`${n.name}: ${a.title}, ${b.title}`);}
@@ -223,7 +226,7 @@ export class WorldRenderer {
   if(!this.player)return null;const p=this.player;
   if(this.cave){const e=this.caveModel.exit;if(Math.hypot(p.x-e.x,p.z-e.z)<7)return {...e,distance:Math.hypot(p.x-e.x,p.z-e.z)};let best=null,dist=4.5;for(const n of this.caveModel.nodes.values()){if(this.depleted.has(n.id)||n.occupied)continue;const d=Math.hypot(n.x-p.x,n.z-p.z);if(d<dist){dist=d;best={...n,type:'resource',distance:d};}}return best;}
   for(const r of this.ruins.values()){const d=Math.hypot(p.x-r.x,p.z-r.z);if(d<13)return {...r,type:'entrance',distance:d};}
-  let best=null,dist=10.5;for(const n of this.npcs.values()){const d=Math.hypot(n.x-p.x,n.z-p.z);if(d<dist){dist=d;best={...n,type:n.role==='smith'?'smith':'npc',distance:d};}}if(best)return best;
+  let best=null,dist=10.5;for(const n of this.npcs.values()){if(n.available===false)continue;const d=Math.hypot(n.x-p.x,n.z-p.z);if(d<dist){dist=d;best={...n,type:n.role==='smith'?'smith':'npc',distance:d};}}if(best)return best;
   for(const n of this.nodes.values()){if(this.depleted.has(n.id)||n.occupied)continue;const d=Math.hypot(n.x-p.x,n.z-p.z);if(d<dist){dist=d;best={...n,type:'resource',distance:d};}}
   if(!best&&p.house&&Math.hypot(p.x-p.house.doorX,p.z-p.house.doorZ)<8)return {...p.house,type:'home'};return best;
  }

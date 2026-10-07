@@ -19,7 +19,7 @@
  <p>This preview uses the game’s minimap renderer and does not change a traveler save.</p>
 </main><script type="module">
  import {drawMiniMap} from '../src/map.js?v=11';
- import {createPlayer} from '../src/rules.js?v=11';
+ import {createPlayer} from '../src/rules.js?v=24';
  import {generateDungeon} from '../src/dungeons.js?v=11';
  const p=createPlayer('minimap-preview','Ada'),cave=generateDungeon(-2,3),underground={...p,dungeon:{id:cave.id,...cave.spawn}},$=id=>document.getElementById(id);
  drawMiniMap($('surface-reference'),p,{heading:Math.PI});drawMiniMap($('cave-reference'),underground,{cave,heading:Math.PI});

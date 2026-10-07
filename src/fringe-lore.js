@@ -1,5 +1,5 @@
 export const RESOURCE_NAMES={wood:'Biomass',stone:'Silicate',berries:'Nutrient pods',fiber:'Biofilament',iron:'Alloy fragments',powerballs:'Powerballs'};
-export const ROLE_TITLES={gatherer:'Scavenger',keeper:'Colony steward',wayfarer:'Freight runner',smith:'Fabricator'};
+export const ROLE_TITLES={gatherer:'Scavenger',keeper:'Colony steward',wayfarer:'Freight runner',smith:'Fabricator',pilot:'Skiff pilot'};
 export const LORE=[
  {id:'fringe',title:'Outside the public routes',text:'The Fringe is the cluster of star systems beyond the Beshtala-Chanko public transit routes. No legal or political authority governs it. Corporations, faiths, criminal ventures, and independent prospectors all try to make something of its unincorporated worlds.'},
  {id:'powerballs',title:'The Powerball boom',text:"Man Earlie’s Expeditionary Society discovered Powerballs on Earlie Prime. Demand for this powerful energy source in Beshtala-Chanko turned Earlie’s harvesting and refining operation into the Round Power Corporation. Dugall Freight helped establish its first shipping routes."},

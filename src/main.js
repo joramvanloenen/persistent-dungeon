@@ -1,16 +1,16 @@
-import {RESOURCE_NAMES,ROLE_TITLES} from './fringe-lore.js?v=11';
+import {RESOURCE_NAMES,ROLE_TITLES} from './fringe-lore.js?v=24';
 import {resolvePlanet,planetAt,planetContains} from './planets.js?v=11';
 import {installFringeUI} from './fringe-ui.js?v=11';
-import {Store} from './storage.js?v=19';
-import {WorldRenderer} from './render.js?v=23';
+import {Store} from './storage.js?v=24';
+import {WorldRenderer} from './render.js?v=24';
 import {drawMap,drawCaveMap,drawMiniMap} from './map.js?v=11';
 import {BIOMES,CHUNK,LIMIT,biomeAt,nearestSettlement,waterDistance} from './world.js?v=11';
 import {caveStatus,roomAt,resolveDungeon} from './dungeons.js?v=11';
-import {npcGreeting} from './rules.js?v=19';
+import {npcGreeting} from './rules.js?v=24';
 import {equippedWeapon} from './action-game.js?v=11';
 import {installForgeUI} from './forge-ui.js?v=11';
 import {installUILayout} from './ui-layout.js?v=4';
-import {appendMovementTrail} from './world-collision.js?v=19';
+import {appendMovementTrail} from './world-collision.js?v=24';
 const $=id=>document.getElementById(id);
 const detachUILayout=installUILayout(),touchControls=window.matchMedia('(pointer: coarse)');window.addEventListener('pagehide',detachUILayout,{once:true});
 let store=new Store(),world,player,nearby=null,busy=false,dirty=false,activeNpc=null,waypoint=null,miniLast={x:Infinity,z:Infinity,yaw:null,time:0},events=[],mapSpan=2600,mapCenter=null,saveTimer,syncTimer,loaded=false,trail=[],historyOffset=0,entrance=null,suppressed=new Set();
@@ -68,7 +68,7 @@ function showEntrance(target){entrance=target;const leaving=target.type==='exit'
  $('entrance-warning').textContent=leaving?'This access lock remains available for future surveys.':'Take supplies. Return through the access lock in the entry bay.';$('enter-button').textContent=leaving?'Leave facility':'Enter facility';$('stay-button').textContent=leaving?'Keep exploring':'Stay outside';openDialog('entrance-dialog');
 }
 async function interact(){if(!nearby||busy)return;if(nearby.type==='smith'){forgeUI.open(nearby);return;}if(nearby.type==='resource'){act({type:'gather',target:nearby.id}).catch(()=>{});return;}if(nearby.type==='entrance'||nearby.type==='exit'){showEntrance(nearby);return;}if(nearby.type==='home'){act({type:'rest'}).catch(()=>{});return;}
- activeNpc=nearby;$('npc-name').textContent=nearby.name;$('npc-role').textContent=`${ROLE_TITLES[nearby.role]} · ${nearby.affiliation||'Independent Drifters'}`;$('npc-avatar').textContent=nearby.name[0];$('npc-stage').textContent={gatherer:`${nearby.name} clips a salvage tag onto a suit sleeve and looks up.`,keeper:`${nearby.name} turns down the colony comms, listening.`,wayfarer:`${nearby.name} checks a freight manifest, then closes the terminal.`,smith:`${nearby.name} powers down the forming press and turns to listen.`}[nearby.role];$('chat-input').value='';$('custom-reply').open=false;$('talk-dialog').querySelector('.terminal-body').scrollTop=0;$('conversation').replaceChildren();openDialog('talk-dialog');showLine(npcGreeting(activeNpc,player,false));
+ activeNpc=nearby;$('npc-name').textContent=nearby.name;$('npc-role').textContent=`${ROLE_TITLES[nearby.role]} · ${nearby.affiliation||'Independent Drifters'}`;$('npc-avatar').textContent=nearby.name[0];$('npc-stage').textContent={pilot:`${nearby.name} checks the landing bay, then turns to you.`,gatherer:`${nearby.name} clips a salvage tag onto a suit sleeve and looks up.`,keeper:`${nearby.name} turns down the colony comms, listening.`,wayfarer:`${nearby.name} checks a freight manifest, then closes the terminal.`,smith:`${nearby.name} powers down the forming press and turns to listen.`}[nearby.role];$('chat-input').value='';$('custom-reply').open=false;$('talk-dialog').querySelector('.terminal-body').scrollTop=0;$('conversation').replaceChildren();openDialog('talk-dialog');showLine(npcGreeting(activeNpc,player,false));
  try{await waitForSave();const r=await store.request('memory',{npc:activeNpc.id,personal:true});world.setNpcLife(r.npcLife,r.serverTime);activeNpc=r.npc||activeNpc;$('npc-stage').textContent=`${activeNpc.name} pauses from ${nearby.activity||'their rounds'} to listen.`;showLine(npcGreeting(activeNpc,player,r.memories.length>0));}catch(e){toast(e.message);}
 }
 function appendBubble(container,name,message,you=false){const b=document.createElement('div');b.className='bubble'+(you?' you':'');const label=document.createElement('small');label.textContent=name;b.append(label,document.createTextNode(message));container.append(b);return b;}

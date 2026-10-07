@@ -1,7 +1,7 @@
 <!doctype html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>The Fringe · forge playtest</title><link rel="stylesheet" href="../style.css?v=11"><style>body{overflow:auto;padding:12px;background:var(--field)}header{display:flex;align-items:center;gap:10px;flex-wrap:wrap;margin-bottom:12px}header strong{margin-right:auto}header button,select{min-height:44px}iframe{display:block;width:520px;max-width:100%;height:760px;box-sizing:content-box;border:1px solid var(--line);margin:auto}p{font-size:12px}</style></head><body>
 <header><strong>Fabrication playtest · disposable fixture</strong><button id="reopen">Open fabricator</button><button id="advance">Advance heat by 7 seconds</button><select id="size" aria-label="Preview width"><option value="520">Desktop</option><option value="390">Phone 390</option><option value="320">Phone 320</option></select></header><iframe id="forge-preview" title="Forge interface preview"></iframe><p>Uses the real crafting rules and UI with an in-memory traveler. No saves are changed. The advance button skips heating time for testing; strike timers still run normally.</p><output id="result" aria-live="polite"></output>
 <script type="module">
-import {createPlayer,validateAction} from '../src/rules.js?v=11';
+import {createPlayer,validateAction} from '../src/rules.js?v=24';
 import {settlement,smithFor} from '../src/world.js?v=11';
 import {installForgeUI} from '../src/forge-ui.js?v=11';
 import {installUILayout} from '../src/ui-layout.js?v=4';

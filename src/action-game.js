@@ -1,5 +1,5 @@
 import {planetAt} from './planets.js?v=11';
-import {RESOURCE_NAMES} from './fringe-lore.js?v=11';
+import {RESOURCE_NAMES} from './fringe-lore.js?v=24';
 import {hash,settlement,smithFor} from './world.js?v=11';
 import {resolveDungeon,TILE,cavePathClear} from './dungeons.js?v=11';
 export const WEAPONS=Object.freeze([
