@@ -71,3 +71,7 @@ Deploy the updated shared `src/` and restart Node, or redeploy the Supabase `wor
 ### Landing traffic
 
 Deploy the updated `src/npc-life.js`, `landing-port.js`, `scene-layout.js`, `world-collision.js` and `rules.js` together, then restart Node or redeploy the Supabase `world` function. No new table or migration is required: pilots and port brokers use the existing `npc_life` and conversation-memory tables. Each colony has one scheduled pilot and owned skiff. Absolute world time advances visits while a colony is unloaded; the same persisted conversation pause holds both pilot and ship. Visit objectives, completed stops and short crew-pod stays are retained as observations. Catchup records at most one world day, like resident routines. Pages-only play continues using local saves until a shared backend is configured.
+
+### Individual character dialogue
+
+Deploy `src/npc-dialogue.js` together with the updated `src/rules.js`, then restart Node or redeploy the Supabase `world` function. No schema migration is needed. Character voices, histories, ambitions and mannerisms derive from permanent NPC IDs, so they stay consistent between sessions and players. Existing saved conversations and observations are preserved verbatim; personality affects new replies. Conversation history remains available only through the journal or explicit recall questions.
