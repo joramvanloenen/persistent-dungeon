@@ -1,5 +1,5 @@
 import {groundTint,environmentFor,environmentOutsideHome,environmentObstacle} from './environment.js?v=19';
-import {buildRoadSurface,buildGroundPatches,createEnvironmentBatches} from './environment-render.js?v=20';
+import {buildRoadSurface,buildGroundPatches,createEnvironmentBatches} from './environment-render.js?v=23';
 import {npcAt,peopleNear} from './npc-life.js?v=19';
 import {resolvePlanet,planetContains} from './planets.js?v=11';
 import {ROLE_TITLES,containsPowerball} from './fringe-lore.js?v=11';
@@ -169,8 +169,8 @@ export class WorldRenderer {
   const waterGeo=new T.PlaneGeometry(CHUNK,CHUNK);disposable.push(waterGeo);const water=new T.Mesh(waterGeo,materials.water||(materials.water=new T.MeshStandardMaterial({color:0x4c918d,roughness:.4,metalness:.1,transparent:true,opacity:.91})));water.rotation.x=-Math.PI/2;water.position.set((cx+.5)*CHUNK,WATER,(cz+.5)*CHUNK);water.receiveShadow=true;group.add(water);
   const environment=environmentFor(cx,cz),roadSurface=buildRoadSurface(cx,cz,environment.pieces),groundPatches=buildGroundPatches(cx,cz,environment.patches),environmentBatches=createEnvironmentBatches(environment.props);
   group.add(roadSurface,groundPatches);disposable.push(roadSurface.geometry,groundPatches.geometry);for(const {batch}of environmentBatches){group.add(batch);disposable.push(batch);}
-  // Roads cross river channels on modular freight bridges.
-  const bridgePlaces=new Set();for(const [a,b]of segments){const d=Math.hypot(b.x-a.x,b.z-a.z),n=Math.ceil(d/7);for(let i=0;i<n;i++){const t=(i+.5)/n,x=a.x+(b.x-a.x)*t,z=a.z+(b.z-a.z)*t;if(x<cx*CHUNK||x>=(cx+1)*CHUNK||z<cz*CHUNK||z>=(cz+1)*CHUNK||waterDistance(x,z)>22)continue;const key=`${Math.round(x/6)}:${Math.round(z/6)}`;if(bridgePlaces.has(key))continue;bridgePlaces.add(key);const deck=mesh(geos.box,mat('bridge',0x778c94),x,WATER+.65,z,14,.7,8);deck.rotation.y=Math.atan2(b.x-a.x,b.z-a.z);group.add(deck);}}
+  // Shared road geometry supplies the bridge deck; only its piers are separate.
+  const bridgePlaces=new Set();for(const [a,b]of segments){const d=Math.hypot(b.x-a.x,b.z-a.z),n=Math.ceil(d/7);for(let i=0;i<n;i++){const t=(i+.5)/n,x=a.x+(b.x-a.x)*t,z=a.z+(b.z-a.z)*t;if(x<cx*CHUNK||x>=(cx+1)*CHUNK||z<cz*CHUNK||z>=(cz+1)*CHUNK||waterDistance(x,z)>22)continue;const key=`${Math.round(x/6)}:${Math.round(z/6)}`;if(bridgePlaces.has(key))continue;bridgePlaces.add(key);const length=Math.hypot(b.x-a.x,b.z-a.z),nx=-(b.z-a.z)/length,nz=(b.x-a.x)/length;for(const side of [-1,1]){const pier=mesh(geos.box,mat('bridge',0x778c94),x+nx*6.2*side,WATER+.15,z+nz*6.2*side,1.2,1.2,1.2);pier.name='freight-bridge-pier';group.add(pier);}}}
   // A single instance per complete plant; collectible and decorative items share batches.
   const nodes=resourcesFor(cx,cz),decorBatches=[],alienBatches=[],layout=foliageFor(cx,cz);
   const resources=nodes.filter(n=>n.kind!=='stone').map(n=>alienPlacement(n,n.kind==='wood'?'tree':n.kind));

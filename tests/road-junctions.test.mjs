@@ -3,6 +3,7 @@ import assert from 'node:assert/strict';
 import {roadSurfacePlan,intersectRoadPolygons} from '../src/road-surfaces.js';
 import {buildRoadSurface} from '../src/environment-render.js';
 import {terrainSurfaceHeight} from '../src/environment.js';
+import {WATER} from '../src/world.js';
 
 function piece(id,start,end,wear=.5){const length=Math.hypot(end.x-start.x,end.z-start.z),dx=(end.x-start.x)/length,dz=(end.z-start.z)/length;return {id,i:0,start,end,length,dx,dz,nx:-dz,nz:dx,x:(start.x+end.x)/2,z:(start.z+end.z)/2,bridge:false,biome:'meadow',wear};}
 const point=(x,z)=>({x,z}),center=point(70,70);
@@ -27,4 +28,10 @@ test('joining three roads neither leaves holes nor doubles the shared junction',
  const plan=roadSurfacePlan(networks.multi),junctions=plan.filter(s=>s.kind==='junction');
  for(let x=67.21;x<73;x+=.47)for(let z=67.31;z<73;z+=.43)assert.equal(plan.filter(s=>contains(s.poly,point(x,z))).length,1,`Gap or overlap at ${x},${z}`);
  assert.ok(junctions.reduce((sum,s)=>sum+area(s.poly),0)>80);
+});
+test('bridge crossings share one fourteen-metre deck instead of overlapping slabs',()=>{
+ const pieces=networks.cross.map(p=>({...p,bridge:true})),plan=roadSurfacePlan(pieces);
+ for(let i=0;i<plan.length;i++)for(let j=i+1;j<plan.length;j++)assert.ok(area(intersectRoadPolygons(plan[i].poly,plan[j].poly))<1e-5);
+ for(let x=63.21;x<77;x+=.73)for(let z=63.13;z<77;z+=.69)assert.equal(plan.filter(s=>contains(s.poly,point(x,z))).length,1);
+ const mesh=buildRoadSurface(0,0,pieces),p=mesh.geometry.attributes.position;for(let i=0;i<p.count;i++)assert.ok(Math.abs(p.getY(i)-Math.max(WATER+1.06,terrainSurfaceHeight(p.getX(i),p.getZ(i))))<.002);mesh.geometry.dispose();
 });

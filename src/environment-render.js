@@ -2,7 +2,7 @@ import * as T from '../vendor/three.module.js';
 import {CHUNK,WATER} from './world.js?v=11';
 import {TERRAIN_STEP,terrainSurfaceHeight,PATCH_COLORS,environmentFor} from './environment.js?v=19';
 
-import {roadSurfacePlan} from './road-surfaces.js?v=20';
+import {roadSurfacePlan} from './road-surfaces.js?v=23';
 
 const roadMaterial=new T.MeshStandardMaterial({vertexColors:true,roughness:1,flatShading:true,polygonOffset:true,polygonOffsetFactor:-2,polygonOffsetUnits:-2});
 const propMaterial=new T.MeshStandardMaterial({vertexColors:true,roughness:.92,flatShading:true});

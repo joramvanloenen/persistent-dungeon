@@ -23,7 +23,7 @@ function subtractAll(poly,cutters){let fragments=[poly];for(const cutter of cutt
 export function roadSurfacePlan(pieces){
  const bounds=[-5.7,-4.1,-2.7,-1.45,1.45,2.7,4.1,5.7],bands=[0,1,2,1,2,1,0];
  const roads=[...new Map(pieces.map(p=>[p.id,p])).values()].sort((a,b)=>a.id.localeCompare(b.id)).map(p=>{
-  const palette=p.bridge?[0x9aa8a5,0x687b83,0x445c68]:ROAD_COLORS[p.biome],at=(q,offset)=>{const width=p.bridge?.78:1+noise(q.x/23,q.z/23,10800)*.075;return {x:q.x+p.nx*offset*width,z:q.z+p.nz*offset*width};},strip=(start,end,lo,hi)=>normalize([at(start,lo),at(end,lo),at(end,hi),at(start,hi)]),footprint=strip(p.start,p.end,-5.7,5.7),paint=[];
+  const palette=p.bridge?[0x9aa8a5,0x687b83,0x445c68]:ROAD_COLORS[p.biome],at=(q,offset)=>{const width=p.bridge ? 7/5.7 :1+noise(q.x/23,q.z/23,10800)*.075;return {x:q.x+p.nx*offset*width,z:q.z+p.nz*offset*width};},strip=(start,end,lo,hi)=>normalize([at(start,lo),at(end,lo),at(end,hi),at(start,hi)]),footprint=strip(p.start,p.end,-5.7,5.7),paint=[];
   if(p.bridge&&p.i%3!==1)for(const side of [-1,1]){const mid={x:p.start.x+(p.end.x-p.start.x)*.7,z:p.start.z+(p.end.z-p.start.z)*.7};paint.push({poly:strip(p.start,mid,side*5.05,side*5.4),tone:0xc6aa6b});}
   if(!p.bridge&&p.wear>.78){const mid={x:p.start.x+(p.end.x-p.start.x)*.3,z:p.start.z+(p.end.z-p.start.z)*.3},end={x:mid.x+p.dx*.8,z:mid.z+p.dz*.8};paint.push({poly:strip(mid,end,-3.9,3.9),tone:0x7a8781});}
   return {p,palette,strip,footprint,box:box(footprint),paint,neighbors:[]};
