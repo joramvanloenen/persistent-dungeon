@@ -65,11 +65,14 @@ kbd { font-size:10px; padding:2px 5px; color:var(--teal); opacity:1; }
 .world-label { background:#102831da; color:var(--ink); border-color:#5685919e; font-size:10px; padding:3px 6px; }
 .world-label.village { background:#122f3bd9; color:var(--teal); border:0; border-left:2px solid var(--teal); font-size:11px; }
 .entrance-label { background:#102831da; min-width:72px; }
-.dialog { border-top-width:2px; box-shadow:0 14px 60px #0008; }
+.dialog { padding:0; border-top-width:2px; overflow:hidden; box-shadow:0 14px 60px #0008; }
+.dialog[open] { display:grid; grid-template-rows:44px minmax(0,1fr); }
+.terminal-body { overflow:auto; min-height:0; padding:0 26px 26px; overscroll-behavior:contain; scrollbar-color:#648b95 #122730; }
+.forge-playing .terminal-body > .eyebrow { display:none; }
 .dialog::backdrop { background:#06121887; }
 .dialog h2 { font-size:24px; color:var(--ink); }
-.dialog > form:first-child { position:sticky; top:0; height:0; z-index:2; }
-.dialog .close { width:44px; height:44px; min-height:44px; top:-12px; right:-8px; background:#17343b; color:var(--muted); }
+.dialog > form:first-child { position:static; display:flex; justify-content:flex-end; align-items:center; height:44px; margin:0; padding:0 8px; z-index:2; }
+.dialog .close { position:static; width:44px; height:44px; min-height:44px; top:-12px; right:-8px; background:#17343b; color:var(--muted); }
 .dialog .close:hover { background:var(--coral); color:#14262b; }
 .dialog p,.dialog label { color:var(--ink); }
 .dialog .subtle,.dialog .npc-role,.dialog .npc-stage { color:var(--muted); }
@@ -127,7 +130,8 @@ kbd { font-size:10px; padding:2px 5px; color:var(--teal); opacity:1; }
  .action-controls button { min-width:48px; min-height:48px; padding:10px; }
  .bottom-hud .travel-tip { display:block; bottom:calc(100% + 12px); }
  #dungeon-status { left:12px; top:calc(var(--safe-top) + 98px); max-width:calc(100vw - 132px); }
- .dialog { padding:22px 18px; }
+ .dialog { padding:0; }
+ .terminal-body { padding:0 18px 20px; }
  .rpg-dialog .conversation { padding:0 0 0 12px; margin-bottom:20px; }
  .rpg-dialog .bubble { font-size:18px; }
  .quick-items { display:flex; gap:10px; }
